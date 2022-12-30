@@ -1,8 +1,8 @@
 # Void Linux Install Notes
 
-This site documents my experience installing [Void Linux]([Enter the void (voidlinux.org)](https://voidlinux.org/)) on my neat Lenovo ThinkPad X1 2nd Gen tablet. The device was purchased `R2/Ready for Reuse` as a tinkering device but has quickly become my favorite device in my arsenal.
+This site documents my experience installing [Void Linux]([Enter the void (voidlinux.org)](https://voidlinux.org/)) on my _"tabby"_ Lenovo ThinkPad X1 2nd Gen tablet. The device was purchased `R2/Ready for Reuse` as a tinkering device but has quickly become my favorite device in my arsenal.
 
-The purpose of these notes is for me not to forget the steps taken to create what I would consider the perfect *nix setup and a guide for anyone else embarking on the same journey as me.
+The purpose of these notes is not to forget the steps I've taken to create what I would consider the perfect *nix setup. It is also a guide for anyone else embarking on the same journey as me.
 
 _Want to connect? Have questions? See something wrong? Find me @: 🌐 [https://github.com/adamarbour](https://github.com/adamarbour)_
 
@@ -25,6 +25,7 @@ I've broken this up into sub-guides that group my setup into logical parts that 
 - Goal #3: Polish the terminal experience before I install a desktop experience
 - Goal #5: Setup a desktop experience and eliminate the need for a mouse
 - Goal #6: Optimize my workflow and make this my primary device
+- Goal #7: Automate the setup for the future through `ansible`
 
 _NOTE: These goals are subject to change and may be ongoing The sub-sections will be updated as I make changes to my system. I'll put the revisions under a revision section should I make changes after working through the goal._
 

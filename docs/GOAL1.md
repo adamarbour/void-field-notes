@@ -67,23 +67,36 @@ I've already wiped my device. We will use fdisk to setup the partitions and then
 1. Create the partitions
    ```bash
    # List block storage devices (mine is nvme0n1)
-   lsblk
+   lsblk -o NAME,PATH
+   
+   # I prefer gdisk
+   xbps-install -Sy gptfdisk
    
    # Partition the drive
-   cfdisk /dev/nvme0n1
-   > gpt
-   > [New]
-   > 1G	# Partition size for EFI (more than we need)
-   > [Type]
-   > "EFI System"
-   > [New]
-   > (default)	# Use the remainder of the space
-   > [Write]
-   > yes
-   > [Quit]
+   gdisk /dev/nvme0n1
+   > o		# Create a new empty GPT
+   > Y
+   > n		# Add a new partition
+   > (default)
+   > (default)
+   > +1G	# More space than we will need but good to have
+   > ef00	# Set to EFI system partition
+   > c		# Change a partition's name
+   > EFI
+   > n
+   > (default)
+   > (default)
+   > (default)
+   > (default)
+   > c		# Change a partition's name
+   > 2		# Change the second partition
+   > ROOT
+   > p		# Check the layout
+   > w		# Write to disk
+   > Y
    
    # Check to make sure the new partitions are there
-   lsblk
+   lsblk -o NAME,SIZE,UUID,LABEL
    ```
 
 2. Format the EFI partition
@@ -93,7 +106,7 @@ I've already wiped my device. We will use fdisk to setup the partitions and then
 
 3. Create the crypt LUKs device for us to store our root file system on
    ```bash
-   cryptsetup luksFormat /dev/nvme0n1p2	# Defaults are reasonable
+   cryptsetup luksFormat --type=luks2 --label=cryptdevice /dev/nvme0n1p2	# Defaults are reasonable
    > Are you sure? YES
    > Enter passphrase for /dev/nvme0n1p2: *** # Your password
    > Verify password: ***
@@ -106,7 +119,23 @@ I've already wiped my device. We will use fdisk to setup the partitions and then
 4. Setup the rootfs with btrfs
    ```bash
    mkfs.btrfs -L ROOT /dev/mapper/luks
-   mount /dev/mapper/luks /mnt	# Mount the device to create sub-volumes
+   ```
+
+   This is just for my reference. You can do the same but this is not required.
+
+   ```bash
+   # Noting the output for reference
+   lsblk -o NAME,LABEL,UUID
+   
+   # Capturing my drive labels
+   > /dev/nvme0n1p1	EFI
+   > /dev/nvme0n1p2	cryptdevice
+   > /dev/mapper/luks	ROOT
+   ```
+
+   ```bash
+   # Mount the device to create sub-volumes
+   mount /dev/mapper/luks /mnt	
    
    # Create the sub-volumes
    btrfs sub create /mnt/@
@@ -116,12 +145,14 @@ I've already wiped my device. We will use fdisk to setup the partitions and then
    btrfs sub create /mnt/@snapshots
    btrfs sub create /mnt/@log
    btrfs sub create /mnt/@cache
+   btrfs sub create /mnt/@tmp
    
    # Unmount so we can re-mount the subvolumes properly
    umount /mnt
    ```
 
 5. Mount the partitions for chroot installation
+
    ```bash
    OPT_DEFAULT=noatime,nodiratime,compress=zstd,space_cache=v2,ssd
    
@@ -130,21 +161,22 @@ I've already wiped my device. We will use fdisk to setup the partitions and then
    
    # Create the required directories to mount the subvolumes
    cd /mnt
-   mkdir -p efi home var/cache var/log .snapshots swap boot
+   mkdir -p efi home var/cache var/log .snapshots swap boot tmp
    
    # Mount the subvolumes
    mount -o $OPT_DEFAULT,subvol=@home /dev/mapper/luks /mnt/home
    mount -o $OPT_DEFAULT,subvol=@snapshots /dev/mapper/luks /mnt/.snapshots
    mount -o $OPT_DEFAULT,subvol=@log /dev/mapper/luks /mnt/var/log
    mount -o $OPT_DEFAULT,subvol=@cache /dev/mapper/luks /mnt/var/cache
+   mount -o $OPT_DEFAULT,subvol=@tmp /dev/mapper/luks /mnt/tmp
    mount -o $OPT_DEFAULT,subvol=@swap /dev/mapper/luks /mnt/swap
    mount -o $OPT_DEFAULT,subvol=@boot /dev/mapper/luks /mnt/boot
    
    # Mount the EFI partition
-   mount /dev/nvme0n1p1 /mnt/efi
+   mount -o defaults /dev/nvme0n1p1 /mnt/efi
    
    # Check the mount points
-   lsblk
+   lsblk -o NAME,MOUNTPOINTS
    ```
 
 6. Setup the swap file
@@ -154,7 +186,7 @@ I've already wiped my device. We will use fdisk to setup the partitions and then
    chattr +C swapfile
    fallocate -l 16G swapfile # Same as my system memory for hibernation
    chmod 0600 swapfile
-   mkswap swapfile
+   mkswap -L SWAP swapfile
    swapon swapfile
    ```
 
@@ -182,11 +214,11 @@ Now for the install...
 2. Install the `base-system` metapackage
    ```bash
    # Base
-   XBPS_ARCH=$ARCH xbps-install -Sy -r /mnt -R "$REPO" base-system base-devel
-   # Need
-   XBPS_ARCH=$ARCH xbps-install -Sy -r /mnt -R "$REPO" btrfs-progs cryptsetup gummiboot-efistub efibootmgr dracut-uefi sbctl efitools openssl binutils iwd lz4
+   XBPS_ARCH=$ARCH xbps-install -Sy -r /mnt -R "$REPO" base-system base-devel linux linux-headers linux-lts linux-lts-headers
+   # Needed for my setup
+   XBPS_ARCH=$ARCH xbps-install -Sy -r /mnt -R "$REPO" btrfs-progs cryptsetup gummiboot-efistub efibootmgr dracut dracut-uefi sbsigntool efitools openssl binutils iwd lz4
    # Extra
-   XBPS_ARCH=$ARCH xbps-install -Sy -r /mnt -R "$REPO" nano wget curl rsync git
+   XBPS_ARCH=$ARCH xbps-install -Sy -r /mnt -R "$REPO" nano wget curl git
    ```
 
 3. Generate the `/etc/fstab` file.
@@ -200,8 +232,11 @@ Now for the install...
    wget https://raw.githubusercontent.com/glacion/genfstab/master/genfstab -O /sbin/genfstab
    chmod +x /sbin/genfstab
    
-   # Generate the fstab
-   genfstab -U /mnt >> /mnt/etc/fstab
+   # Generate the fstab using labels. Use -U for UUID.
+   genfstab -L /mnt >> /mnt/etc/fstab
+   
+   # Check the result
+   cat /mnt/etc/fstab
    ```
 
 Now we are ready to setup the bootloader.
@@ -210,15 +245,16 @@ Now we are ready to setup the bootloader.
 
 The instructions on the Void website include setting up GRUB, but for my installation, I intend to boot directly from UEFI using the `efibootmgr`. I've adapted this from an earlier setup to use here. In our next goal, we will clean this up. For now, I want to be able to boot up the device.
 
-1. Create a folder that will hold the signed unified kernel.
+1. Let's add some modules that we want included in our initial efi binary. We will optimize this later.
    ```bash
-   mkdir -p /mnt/efi/EFI/Linux
+   xbps-install -Sy lz4 mksh
    ```
 
 2. Let's generate EFI keys for this device and enroll them into the EFI. [^3]
+
    ```bash
    # We will need these tools
-   xbps-install -Sy efitools sbctl binutils gummiboot-efistub lz4
+   xbps-install -Sy efitools sbctl binutils gummiboot-efistub dracut-uefi sbsigntool
    
    # A handy script for generating efi keys. We will need this for the bootloader
    wget https://raw.githubusercontent.com/jirutka/efi-mkkeys/master/efi-mkkeys -O /sbin/efi-mkkeys
@@ -228,6 +264,7 @@ The instructions on the Void website include setting up GRUB, but for my install
    efi-mkkeys -s "VOID" -o /mnt/etc/efi-keys
    
    # Import the keys into sbctl to enroll them to the EFI
+   sbctl create-keys
    sbctl import-keys --force \
    	--db-cert /mnt/etc/efi-keys/db.crt \
    	--db-key /mnt/etc/efi-keys/db.key \
@@ -243,50 +280,62 @@ The instructions on the Void website include setting up GRUB, but for my install
    sbctl status
    ```
 
-3. Create a basic `dracult.conf.d` file that we will tweak later. For now we just want to get the system booted.
-   NOTE: We will be creating a brand new one in our ch-root but we will use this as the original
+3. Create a basic `dracult.conf.d` file that we will tweak later. For now we just want to get the system booted. [^5][^6]
+   _NOTE: We will be creating a brand new one in our mounted system but we will use this as the original._
 
    ```bash
    nano /etc/dracut.conf.d/dracut-defaults.conf
-   
-   # Keep it for later
-   cp /etc/dracut.conf.d/dracut-defaults.conf /mnt/etc/dracut.conf.d/dracut-defaults.conf.original
    
    #########################################
    #   Contents of the file below....		#
    #########################################
    hostonly=no
-   hostonly_cmdline=no
+   hostonly_cmdline=yes
    use_fstab=yes
    compress=lz4
    early_microcode=no
    show_modules=yes
    
    add_drivers+='lz4 lz4_compress'
-   filesystems+='btrfs'
-   add_dracutmodules+='crypt'
+   filesystems+='vfat btrfs'
+   omit_dracutmodules+='zfs systemd-run'
+   add_dracutmodules+='mksh crypt'
    
    uefi=yes
    uefi_stub=/usr/lib/gummiboot/linuxx64.efi.stub
+   uefi_secureboot_cert=/mnt/etc/efi-keys/db.crt
+   uefi_secureboot_key=/mnt/etc/efi-keys/db.key
+   
+   CRYPTDEVICE=$(blkid -L cryptdevice)
    
    CMDLINE=(
    	rw
+   	rd.timeout=30
    	rd.luks=1
-   	rd.luks.timeout=60
+   	rd.luks.timeout=30
    	rd.luks.crypttab=0
-   	rd.luks.name=$(cryptsetup luksUUID /dev/nvme0n1p2)=ROOT
+   	rd.luks.uuid=$(cryptsetup luksUUID $CRYPTDEVICE)
    	root=LABEL=ROOT
    	rootflags=subvol=@
    )
    kernel_cmdline="${CMDLINE[*]}"
+   unset CRYPTDEVICE
    unset CMDLINE
    ```
 
-4. Let's sign the efi file, copy it to our target `mnt` and add it to the boot manager.
    ```bash
-   # Sign the .efi file that was created
-   sbctl sign /boot/EFI/Linux/linux-5.19.10_1.efi
-   
+   # Keep it for later
+   cp /etc/dracut.conf.d/dracut-defaults.conf /mnt/etc/dracut.conf.d/dracut-defaults.conf.original
+   ```
+
+4. Create the `efi stub`
+   ```bash
+   dracut --force --add-fstab /mnt/etc/fstab
+   ```
+
+5. Let's copy the efi to our target `mnt` and add it to the boot manager.
+
+   ```bash
    # Copy it into our target mnt
    mkdir -p /mnt/efi/EFI/Linux
    cp /boot/EFI/Linux/linux-5.19.10_1.efi /mnt/efi/EFI/Linux/linux-5.19.10_1.efi 
@@ -301,7 +350,7 @@ The instructions on the Void website include setting up GRUB, but for my install
    efibootmgr -o 0000,0001,0002,0003,...
    ```
 
-   NOTE: Later we will modify the Kernel hooks to take care of signing and updating the boot manager.[^4]
+   _NOTE: Later we will modify the Kernel hooks to take care of signing and updating the boot manager.[^4]_
 
 #### The moment we've been waiting for...
 
@@ -327,7 +376,7 @@ The instructions on the Void website include setting up GRUB, but for my install
 2. Close everything out
    ```bash
    exit	# Exit chroot
-   swapoff /mnt/swap/swapfile
+   cd / && swapoff /mnt/swap/swapfile
    umount -R /mnt
    ```
 
@@ -336,7 +385,17 @@ The instructions on the Void website include setting up GRUB, but for my install
    reboot
    ```
 
-   
+
+
+## Revisions
+
+Below is a list of revisions that have been made since this was published.
+
+1. I modified my /etc/fstab to reflect the following for the /efi mount after deploying the kernel.
+   ```
+   # /dev/nvme0n1p1 UUID=7406-36CA
+   LABEL=EFI               /efi            vfat            rw,defaults,errors=remount-ro    0 1
+   ```
 
 ## References
 
@@ -344,3 +403,5 @@ The instructions on the Void website include setting up GRUB, but for my install
 [^2]: [The XBPS Method](https://docs.voidlinux.org/installation/guides/chroot.html#the-xbps-method)
 [^3]: [EFI-mkkeys](https://github.com/jirutka/efi-mkkeys/)
 [^4]: [Void Kernel Hooks](https://docs.voidlinux.org/config/kernel.html?highlight=dracut#kernel-hooks)
+[^5]: [dracut.conf.5(gz) - Void Linux manpages](https://man.voidlinux.org/dracut.conf.5)
+[^6]: [dracut.cmdline.7(gz) - Void Linux manpages](https://man.voidlinux.org/dracut.cmdline.7)
