@@ -77,17 +77,17 @@ umount /mnt
 ```bash
 OPT_DEFAULT=noatime,compress-force=zstd,commit=120,space_cache=v2,ssd,discard=async,autodefrag
 EXT_OPT=nodev,nosuid,noexec
-mount -o $OPT_DEFAULT,subvol=@ /dev/mapper/crypt /mnt
+mount -o $OPT_DEFAULT,subvol=@ /dev/mapper/cryptroot /mnt
 mkdir -p /mnt/{home,var/swap,var/abs,var/tmp,srv,.snapshots,btrfs,var/log,boot,var/cache} # Create all the required directories
-mount -o $OPT_DEFAULT,subvol=@home /dev/mapper/crypt /mnt/home  && \
-mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@swap /dev/mapper/crypt /mnt/var/swap && \
-mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@abs /dev/mapper/crypt /mnt/var/abs && \
-mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@tmp /dev/mapper/crypt /mnt/var/tmp && \
-mount -o $OPT_DEFAULT,subvol=@srv /dev/mapper/crypt /mnt/srv && \
-mount -o $OPT_DEFAULT,subvol=@snapshots /dev/mapper/crypt /mnt/.snapshots && \
-mount -o $OPT_DEFAULT,subvolid=5 /dev/mapper/crypt /mnt/btrfs
-mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@log /dev/mapper/crypt /mnt/var/log && \
-mount -o $OPT_DEFAULT,subvolid=@boot /dev/mapper/crypt /mnt/boot && \
-mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@cache /dev/mapper/crypt /mnt/var/cache
+mount -o $OPT_DEFAULT,subvol=@home /dev/mapper/cryptroot /mnt/home  && \
+mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@swap /dev/mapper/cryptroot /mnt/var/swap && \
+mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@abs /dev/mapper/cryptroot /mnt/var/abs && \
+mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@tmp /dev/mapper/cryptroot /mnt/var/tmp && \
+mount -o $OPT_DEFAULT,subvol=@srv /dev/mapper/cryptroot /mnt/srv && \
+mount -o $OPT_DEFAULT,subvol=@snapshots /dev/mapper/cryptroot /mnt/.snapshots && \
+mount -o $OPT_DEFAULT,subvolid=5 /dev/mapper/cryptroot /mnt/btrfs
+mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@log /dev/mapper/cryptroot /mnt/var/log && \
+mount -o $OPT_DEFAULT,subvolid=@boot /dev/mapper/cryptroot /mnt/boot && \
+mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@cache /dev/mapper/cryptroot /mnt/var/cache
 ```
 8. 
