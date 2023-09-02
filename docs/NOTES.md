@@ -102,3 +102,15 @@ swapon /mnt/var/swap/swapfile
 ```
 
 # Bootstrap Install Void
+1. Set variables and copy keys for chroot
+```bash
+REPO=https://repo-default.voidlinux.org/current
+ARCH=x86_64
+mkdir -p /mnt/var/db/xbps/keys
+cp /var/db/xbps/keys/* /mnt/var/db/xbps/keys/
+```
+2. Install the base system meant for my specifics (adjust for your needs) 
+```bash
+XBPS_ARCH=$ARCH xbps-install -S -r /mnt -R "$REPO" base-system base-devel linux-firmware-amd linux-firmware-qualcomm btrfs-progs cryptsetup sbctl sbsigntool gummiboot-efistub efibootmgr efitools lz4 lzip zsh zsh-autosuggestions zsh-completions nano curl wget git
+```
+-- SEE /usr/share/doc/efibootmgr/README.voidlinux for instructions using efibootmgr to automatically manage EFI boot entries
