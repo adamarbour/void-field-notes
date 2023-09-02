@@ -87,7 +87,18 @@ mount -o $OPT_DEFAULT,subvol=@srv /dev/mapper/cryptroot /mnt/srv && \
 mount -o $OPT_DEFAULT,subvol=@snapshots /dev/mapper/cryptroot /mnt/.snapshots && \
 mount -o $OPT_DEFAULT,subvolid=5 /dev/mapper/cryptroot /mnt/btrfs
 mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@log /dev/mapper/cryptroot /mnt/var/log && \
-mount -o $OPT_DEFAULT,subvolid=@boot /dev/mapper/cryptroot /mnt/boot && \
+mount -o $OPT_DEFAULT,$EXT_OPT,subvolid=@boot /dev/mapper/cryptroot /mnt/boot && \
 mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@cache /dev/mapper/cryptroot /mnt/var/cache
 ```
-8. 
+8. Mount the EFI volume
+```bash
+mkdir /mnt/efi
+mount -o $EXT_OPT /dev/disk/by-partlabel/EFI /mnt/efi
+```
+9. Create swap file
+```bash
+btrfs filesystem mkswapfile --size 32g --uuid clear /mnt/var/swap/swapfile
+swapon /mnt/var/swap/swapfile
+```
+
+# Bootstrap Install Void
