@@ -57,3 +57,37 @@ cryptsetup --allow-discards --perf-no_read_workqueue --perf-no_write_workqueue -
 mkfs.vfat -F32 -n EFI /dev/disk/by-partlabel/EFI
 mkfs.btrfs -L ROOTFS -f /dev/mapper/cryptroot
 ```
+6. Create subvolumes
+```bash
+mount /dev/mapper/cryptroot /mnt
+btrfs sub create /mnt/@ && \
+btrfs sub create /mnt/@home && \
+btrfs sub create /mnt/@swap && \
+btrfs sub create /mnt/@abs && \
+btrfs sub create /mnt/@tmp && \
+btrfs sub create /mnt/@srv && \
+btrfs sub create /mnt/@snapshots && \
+btrfs sub create /mnt/@btrfs && \
+btrfs sub create /mnt/@log && \
+btrfs sub create /mnt/@boot && \
+btrfs sub create /mnt/@cache
+umount /mnt
+```
+7. Mount the filesystem to bootstrap
+```bash
+OPT_DEFAULT=noatime,compress-force=zstd,commit=120,space_cache=v2,ssd,discard=async,autodefrag
+EXT_OPT=nodev,nosuid,noexec
+mount -o $OPT_DEFAULT,subvol=@ /dev/mapper/crypt /mnt
+mkdir -p /mnt/{home,var/swap,var/abs,var/tmp,srv,.snapshots,btrfs,var/log,boot,var/cache} # Create all the required directories
+mount -o $OPT_DEFAULT,subvol=@home /dev/mapper/crypt /mnt/home  && \
+mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@swap /dev/mapper/crypt /mnt/var/swap && \
+mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@abs /dev/mapper/crypt /mnt/var/abs && \
+mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@tmp /dev/mapper/crypt /mnt/var/tmp && \
+mount -o $OPT_DEFAULT,subvol=@srv /dev/mapper/crypt /mnt/srv && \
+mount -o $OPT_DEFAULT,subvol=@snapshots /dev/mapper/crypt /mnt/.snapshots && \
+mount -o $OPT_DEFAULT,subvolid=5 /dev/mapper/crypt /mnt/btrfs
+mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@log /dev/mapper/crypt /mnt/var/log && \
+mount -o $OPT_DEFAULT,subvolid=@boot /dev/mapper/crypt /mnt/boot && \
+mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@cache /dev/mapper/crypt /mnt/var/cache
+```
+8. 
