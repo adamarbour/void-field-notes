@@ -115,7 +115,7 @@ cp /var/db/xbps/keys/* /mnt/var/db/xbps/keys/
 ```
 3. Install the base system meant for my specifics (adjust for your needs) 
 ```bash
-XBPS_ARCH=$ARCH xbps-install -S -r /mnt -R "$REPO" base-system base-devel linux-firmware-amd linux-firmware-qualcomm btrfs-progs cryptsetup refind sbctl sbsigntool gummiboot-efistub efibootmgr efitools lz4 lzip zsh zsh-autosuggestions zsh-completions nano curl wget git
+XBPS_ARCH=$ARCH xbps-install -S -r /mnt -R "$REPO" base-system base-devel linux-firmware-amd linux-firmware-qualcomm btrfs-progs cryptsetup refind iwd NetworkManager elogind sbctl sbsigntool gummiboot-efistub efibootmgr efitools lz4 lzip zsh zsh-autosuggestions zsh-completions nano curl wget git
 ```
 -- SEE /usr/share/doc/efibootmgr/README.voidlinux for instructions using efibootmgr to automatically manage EFI boot entries
 -- TODO Mount efivars readonly
@@ -123,6 +123,11 @@ XBPS_ARCH=$ARCH xbps-install -S -r /mnt -R "$REPO" base-system base-devel linux-
 ```bash
 git clone https://github.com/glacion/genfstab
 ./genfstab/genfstab -L /mnt >> /mnt/etc/fstab
+```
+Additionally add the following to the fstab
+```bash
+# /mnt/etc/fstab
+efivarfs /sys/firmware/efi/efivars efivarfs ro,nosuid,nodev,noexec 0 0
 ```
 5. Change root into the target system
 ```bash
@@ -167,6 +172,7 @@ cp -r /usr/share/refind/fonts /boot/EFI/refind/
 2. Configure refined
 ```bash
 sed -i 's/#scanfor internal,external,optical,manual/scanfor manual,external/' /boot/EFI/refind/refind.conf
+sed -i 's/#use_graphics_for osx,linux/use_graphics_for linux/' /boot/EFI/refind/refind.conf
 nano /boot/EFI/refind/refind.conf
 >> 
 ```
@@ -190,3 +196,55 @@ echo hostonly=yes >> /etc/dracut.conf
 ```bash
 xbps-reconfigure -fa
 ```
+# Networking
+For my purposes, I plan to use NetworkManager with an iwd backend.
+1. Enable dBus
+```bash
+ln -s /etc/sv/dbus /etc/runit/runsvdir/default
+ln -s /etc/sv/elogind /etc/runit/runsvdir/default
+```
+2. Setup Network Manager to use iwd as backend
+```bash
+mkdir -p /etc/NetworkManager/conf.d/
+nano /etc/NetworkManager/iwd.conf
+```
+Contents of `/etc/NetworkManager/conf.d/iwd.conf`
+```bash
+[device]
+wifi.backend=iwd
+```
+3. Configure iwd. Enable the built-in networking + disable IPv6 (optional)
+```bash
+# Contents of /etc/iwd/main.conf
+
+[General]
+EnableNetworkConfiguration=true
+UseDefaultInterface=true
+
+[Network]
+EnableIPv6=false
+```
+5. Enable the services
+```bash
+ln -s /etc/sv/iwd /etc/runit/runsvdir/default
+ln -s /etc/sv/NetworkManager /etc/runit/runsvdir/default
+```
+6. Connect to wifi...
+
+# Firmware updates
+1. Install firmware update
+```bash
+xbps-install fwupd fwupd-efi fwupdate
+```
+2. Create a tools directory if it does not exist & copy the binary + sign
+```bash
+mkdir -p /boot/EFI/tools
+cp /usr/lib/fwupdate/EFI/void/fwupx64.efi /boot/EFI/tools
+sbctl sign /boot/EFI/tools/fwupx64.efi
+```
+3. Setup refind option by adding it to the showtools
+```bash
+# /EFI/refind/refind.conf
+showtools <...>, fwupdate
+```
+5. 
