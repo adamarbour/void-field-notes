@@ -115,7 +115,7 @@ cp /var/db/xbps/keys/* /mnt/var/db/xbps/keys/
 ```
 3. Install the base system meant for my specifics (adjust for your needs) 
 ```bash
-XBPS_ARCH=$ARCH xbps-install -S -r /mnt -R "$REPO" base-system base-devel linux-firmware-amd linux-firmware-qualcomm btrfs-progs cryptsetup refind iwd NetworkManager elogind sbctl sbsigntool gummiboot-efistub efibootmgr efitools lz4 lzip zsh zsh-autosuggestions zsh-completions nano curl wget git
+XBPS_ARCH=$ARCH xbps-install -S -r /mnt -R "$REPO" base-system base-devel linux-firmware-amd linux-firmware-qualcomm btrfs-progs cryptsetup refind iwd NetworkManager elogind sbctl sbsigntool gummiboot-efistub efibootmgr efitools efivar lz4 lzip zsh zsh-autosuggestions zsh-completions nano curl wget git
 ```
 -- SEE /usr/share/doc/efibootmgr/README.voidlinux for instructions using efibootmgr to automatically manage EFI boot entries
 -- TODO Mount efivars readonly
@@ -123,11 +123,6 @@ XBPS_ARCH=$ARCH xbps-install -S -r /mnt -R "$REPO" base-system base-devel linux-
 ```bash
 git clone https://github.com/glacion/genfstab
 ./genfstab/genfstab -L /mnt >> /mnt/etc/fstab
-```
-Additionally add the following to the fstab
-```bash
-# /mnt/etc/fstab
-efivarfs /sys/firmware/efi/efivars efivarfs ro,nosuid,nodev,noexec 0 0
 ```
 5. Change root into the target system
 ```bash
@@ -158,7 +153,7 @@ chsh -s /bin/zsh
 sbctl create-keys
 sbctl enroll-keys -im
 ```
-3. Manually setup refind
+2. Manually setup refind
 ```bash
 mkdir -p /boot/EFI/refind
 cp /usr/share/refind/refind_x64.efi /boot/EFI/refind/
@@ -169,22 +164,19 @@ cp /usr/share/refind/refind.conf-sample /boot/EFI/refind/refind.conf
 cp -r /usr/share/refind/icons /boot/EFI/refind/
 cp -r /usr/share/refind/fonts /boot/EFI/refind/
 ```
-2. Configure refined
+3. Configure refind
 ```bash
 sed -i 's/#scanfor internal,external,optical,manual/scanfor manual,external/' /boot/EFI/refind/refind.conf
 sed -i 's/#use_graphics_for osx,linux/use_graphics_for linux/' /boot/EFI/refind/refind.conf
 nano /boot/EFI/refind/refind.conf
 >> 
 ```
-4. 
-
-
-2. Add custom theme
+4. Add preferred theme
 ```bash
 mkdir /boot/EFI/refind/themes
-git clone https://github.com/dheishman/refind-dreary.git /efi/EFI/refind/themes/refind-dreary-git
-mv /efi/EFI/refind/themes/refind-dreary-git/highres /efi/EFI/refind/themes/refind-dreary
-rm -dR /efi/EFI/refind/themes/refind-dreary-git
+git clone https://github.com/LightAir/darkmini /efi/EFI/refind/themes/darkmini
+
+echo "include themes/darkmini/theme-mini.conf" >> /boot/EFI/refind/refind.conf
 ```
 
 # Configure Kernel
