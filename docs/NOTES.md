@@ -44,7 +44,7 @@ xbps-install gptfdisk btrfs-progs cryptsetup
 sgdisk --zap-all /dev/nvme0n1
 sgdisk --clear \
 --new=1:0:+512MiB --typecode=1:ef00 --change-name=1:EFI \
---new=2:0:0 --typecode=2:8300 --change-name=3:cryptsystem \
+--new=2:0:0 --typecode=2:8300 --change-name=2:cryptsystem \
 /dev/nvme0n1
 ```
 4. Setup cryptsystem
@@ -111,6 +111,49 @@ cp /var/db/xbps/keys/* /mnt/var/db/xbps/keys/
 ```
 2. Install the base system meant for my specifics (adjust for your needs) 
 ```bash
-XBPS_ARCH=$ARCH xbps-install -S -r /mnt -R "$REPO" base-system base-devel linux-firmware-amd linux-firmware-qualcomm btrfs-progs cryptsetup sbctl sbsigntool gummiboot-efistub efibootmgr efitools lz4 lzip zsh zsh-autosuggestions zsh-completions nano curl wget git
+XBPS_ARCH=$ARCH xbps-install -S -r /mnt -R "$REPO" base-system base-devel linux-firmware-amd linux-firmware-qualcomm btrfs-progs cryptsetup refind sbctl sbsigntool gummiboot-efistub efibootmgr efitools lz4 lzip zsh zsh-autosuggestions zsh-completions nano curl wget git
 ```
 -- SEE /usr/share/doc/efibootmgr/README.voidlinux for instructions using efibootmgr to automatically manage EFI boot entries
+-- TODO Mount efivars readonly
+
+3. Generate fstab
+```bash
+git clone https://github.com/glacion/genfstab
+./genfstab/genfstab -L /mnt >> /mnt/etc/fstab
+```
+4. Change root into the target system
+```bash
+xchroot /mnt /bin/zsh
+```
+5. Configure the target system
+```bash
+echo %HOSTNAME% > /etc/hostname
+
+ln -sf /usr/share/zoneinfo/<timezone> /etc/localtime
+hwclock -uw
+
+nano /etc/default/libc-locales # Enable the locales I want
+xbps-reconfigure -f glibc-locales
+
+passwd # Set root password
+chsh -s /bin/zsh
+```
+# Bootloader
+1. Manually setup refind
+```bash
+mkdir -p /efi/EFI/refind
+cp /usr/share/refind/refind_x64.efi /efi/EFI/refind/
+efibootmgr --create --disk /dev/nvme0n1 --part 1 --loader /EFI/refind/refind_x64.efi --label "rEFInd Boot Manager" --unicode
+mkdir /efi/EFI/refind/drivers_x64
+cp /usr/share/refind/drivers_x64/btrfs_x64.efi /efi/EFI/refind/drivers_x64
+cp /usr/share/refind/refind.conf-sample /efi/EFI/refind/refind.conf
+```
+2. Add custom theme
+```bash
+mkdir /efi/EFI/refind/themes
+git clone https://github.com/dheishman/refind-dreary.git /efi/EFI/refind/themes/refind-dreary-git
+mv /efi/EFI/refind/themes/refind-dreary-git/highres /efi/EFI/refind/themes/refind-dreary
+rm -dR /efi/EFI/refind/themes/refind-dreary-git
+```
+3. Configure refined
+4. 
