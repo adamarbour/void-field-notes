@@ -69,7 +69,6 @@ btrfs sub create /mnt/@srv && \
 btrfs sub create /mnt/@snapshots && \
 btrfs sub create /mnt/@btrfs && \
 btrfs sub create /mnt/@log && \
-btrfs sub create /mnt/@boot && \
 btrfs sub create /mnt/@cache
 umount /mnt
 ```
@@ -77,10 +76,12 @@ umount /mnt
 ```bash
 OPT_DEFAULT=noatime,compress-force=zstd,commit=120,space_cache=v2,ssd,discard=async,autodefrag
 EXT_OPT=nodev,nosuid,noexec
+
 mount -o $OPT_DEFAULT,subvol=@ /dev/mapper/cryptroot /mnt
-mkdir -p /mnt/{home,var/swap,var/abs,var/tmp,srv,.snapshots,btrfs,var/log,boot,var/cache} # Create all the required directories
+mkdir -p /mnt/{home,.swapvol,var/abs,var/tmp,srv,.snapshots,.btrfs,var/log,boot,var/cache} # Create all the required directories
+
 mount -o $OPT_DEFAULT,subvol=@home /dev/mapper/cryptroot /mnt/home  && \
-mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@swap /dev/mapper/cryptroot /mnt/var/swap && \
+mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@swap /dev/mapper/cryptroot /mnt/.swapvol && \
 mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@abs /dev/mapper/cryptroot /mnt/var/abs && \
 mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@tmp /dev/mapper/cryptroot /mnt/var/tmp && \
 mount -o $OPT_DEFAULT,subvol=@srv /dev/mapper/cryptroot /mnt/srv && \
@@ -90,42 +91,50 @@ mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@log /dev/mapper/cryptroot /mnt/var/log &&
 mount -o $OPT_DEFAULT,$EXT_OPT,subvolid=@boot /dev/mapper/cryptroot /mnt/boot && \
 mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@cache /dev/mapper/cryptroot /mnt/var/cache
 ```
-8. Mount the EFI volume
+8. Mount the EFI boot volume
 ```bash
-mkdir /mnt/efi
-mount -o $EXT_OPT /dev/disk/by-partlabel/EFI /mnt/efi
+mount -o $EXT_OPT /dev/disk/by-partlabel/EFI /mnt/boot
 ```
 9. Create swap file
 ```bash
-btrfs filesystem mkswapfile --size 32g --uuid clear /mnt/var/swap/swapfile
-swapon /mnt/var/swap/swapfile
+btrfs filesystem mkswapfile --size 32g --uuid clear /mnt/.swapvol/swapfile
+swapon /mnt/.swapvol/swapfile
 ```
 
 # Bootstrap Install Void
-1. Set variables and copy keys for chroot
+1. Install pre-reqs
+```bash
+xbps-install xtools git
+```
+2. Set variables and copy keys for chroot
 ```bash
 REPO=https://repo-default.voidlinux.org/current
 ARCH=x86_64
 mkdir -p /mnt/var/db/xbps/keys
 cp /var/db/xbps/keys/* /mnt/var/db/xbps/keys/
 ```
-2. Install the base system meant for my specifics (adjust for your needs) 
+3. Install the base system meant for my specifics (adjust for your needs) 
 ```bash
 XBPS_ARCH=$ARCH xbps-install -S -r /mnt -R "$REPO" base-system base-devel linux-firmware-amd linux-firmware-qualcomm btrfs-progs cryptsetup refind sbctl sbsigntool gummiboot-efistub efibootmgr efitools lz4 lzip zsh zsh-autosuggestions zsh-completions nano curl wget git
 ```
 -- SEE /usr/share/doc/efibootmgr/README.voidlinux for instructions using efibootmgr to automatically manage EFI boot entries
 -- TODO Mount efivars readonly
-
-3. Generate fstab
+4. Generate fstab
 ```bash
 git clone https://github.com/glacion/genfstab
 ./genfstab/genfstab -L /mnt >> /mnt/etc/fstab
 ```
-4. Change root into the target system
+5. Change root into the target system
 ```bash
+cp /etc/resolv.conf /mnt/etc
+
+mount --rbind /sys /mnt/sys && mount --make-rslave /mnt/sys
+mount --rbind /dev /mnt/dev && mount --make-rslave /mnt/dev
+mount --rbind /proc /mnt/proc && mount --make-rslave /mnt/proc
+
 xchroot /mnt /bin/zsh
 ```
-5. Configure the target system
+6. Configure the target system
 ```bash
 echo %HOSTNAME% > /etc/hostname
 
@@ -139,21 +148,45 @@ passwd # Set root password
 chsh -s /bin/zsh
 ```
 # Bootloader
-1. Manually setup refind
+1. Generate keys
 ```bash
-mkdir -p /efi/EFI/refind
-cp /usr/share/refind/refind_x64.efi /efi/EFI/refind/
-efibootmgr --create --disk /dev/nvme0n1 --part 1 --loader /EFI/refind/refind_x64.efi --label "rEFInd Boot Manager" --unicode
-mkdir /efi/EFI/refind/drivers_x64
-cp /usr/share/refind/drivers_x64/btrfs_x64.efi /efi/EFI/refind/drivers_x64
-cp /usr/share/refind/refind.conf-sample /efi/EFI/refind/refind.conf
+sbctl create-keys
+sbctl enroll-keys -im
 ```
+3. Manually setup refind
+```bash
+mkdir -p /boot/EFI/refind
+cp /usr/share/refind/refind_x64.efi /boot/EFI/refind/
+efibootmgr --create --disk /dev/nvme0n1 --part 1 --loader /EFI/refind/refind_x64.efi --label "rEFInd Boot Manager" --unicode
+mkdir /boot/EFI/refind/drivers_x64
+cp /usr/share/refind/drivers_x64/btrfs_x64.efi /boot/EFI/refind/drivers_x64
+cp /usr/share/refind/refind.conf-sample /boot/EFI/refind/refind.conf
+cp -r /usr/share/refind/icons /boot/EFI/refind/
+cp -r /usr/share/refind/fonts /boot/EFI/refind/
+```
+2. Configure refined
+```bash
+sed -i 's/#scanfor internal,external,optical,manual/scanfor manual,external/' /boot/EFI/refind/refind.conf
+nano /boot/EFI/refind/refind.conf
+>> 
+```
+4. 
+
+
 2. Add custom theme
 ```bash
-mkdir /efi/EFI/refind/themes
+mkdir /boot/EFI/refind/themes
 git clone https://github.com/dheishman/refind-dreary.git /efi/EFI/refind/themes/refind-dreary-git
 mv /efi/EFI/refind/themes/refind-dreary-git/highres /efi/EFI/refind/themes/refind-dreary
 rm -dR /efi/EFI/refind/themes/refind-dreary-git
 ```
-3. Configure refined
-4. 
+
+# Configure Kernel
+1. Set it to host-only mode
+```bash
+echo hostonly=yes >> /etc/dracut.conf
+```
+2. Reconfigure/regenerate the kernel
+```bash
+xbps-reconfigure -fa
+```
