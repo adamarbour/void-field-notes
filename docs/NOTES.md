@@ -108,7 +108,7 @@ cp /var/db/xbps/keys/* /mnt/var/db/xbps/keys/
 ```
 3. Install the base system meant for my specifics (adjust for your needs) 
 ```bash
-XBPS_ARCH=$ARCH xbps-install -S -r /mnt -R "$REPO" base-system base-devel linux-firmware-amd linux-firmware-qualcomm btrfs-progs cryptsetup refind iwd NetworkManager elogind sbctl sbsigntool gummiboot-efistub efibootmgr efitools efivar lz4 lzip zsh zsh-autosuggestions zsh-completions nano curl wget git
+XBPS_ARCH=$ARCH xbps-install -S -r /mnt -R "$REPO" base-system base-devel linux-firmware-amd linux-firmware-qualcomm btrfs-progs grub grub-x86_64-efi grub-btrfs grub-btrfs-runit iwd NetworkManager elogind sbctl sbsigntool gummiboot-efistub efibootmgr efitools efivar lz4 lzip zsh zsh-autosuggestions zsh-completions nano curl wget git void-repo-nonfree
 ```
 -- SEE /usr/share/doc/efibootmgr/README.voidlinux for instructions using efibootmgr to automatically manage EFI boot entries
 -- TODO Mount efivars readonly
@@ -134,44 +134,18 @@ echo %HOSTNAME% > /etc/hostname
 ln -sf /usr/share/zoneinfo/<timezone> /etc/localtime
 hwclock -uw
 
-nano /etc/default/libc-locales # Enable the locales I want
+sed -i 's/#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/default/libc-locales
 xbps-reconfigure -f glibc-locales
 
 passwd # Set root password
 chsh -s /bin/zsh
 ```
-# Bootloader
-1. Generate keys
-```bash
-sbctl create-keys
-sbctl enroll-keys -im
-```
-2. Manually setup refind
-```bash
-mkdir -p /boot/EFI/refind
-cp /usr/share/refind/refind_x64.efi /boot/EFI/refind/
-efibootmgr --create --disk /dev/nvme0n1 --part 1 --loader /EFI/refind/refind_x64.efi --label "rEFInd Boot Manager" --unicode
-mkdir /boot/EFI/refind/drivers_x64
-cp /usr/share/refind/drivers_x64/btrfs_x64.efi /boot/EFI/refind/drivers_x64
-cp /usr/share/refind/refind.conf-sample /boot/EFI/refind/refind.conf
-cp -r /usr/share/refind/icons /boot/EFI/refind/
-cp -r /usr/share/refind/fonts /boot/EFI/refind/
-```
-3. Configure refind
-```bash
-sed -i 's/#scanfor internal,external,optical,manual/scanfor manual,external/' /boot/EFI/refind/refind.conf
-sed -i 's/#use_graphics_for osx,linux/use_graphics_for linux/' /boot/EFI/refind/refind.conf
-nano /boot/EFI/refind/refind.conf
->> 
-```
-4. Add preferred theme
-```bash
-mkdir /boot/EFI/refind/themes
-git clone https://github.com/LightAir/darkmini /efi/EFI/refind/themes/darkmini
 
-echo "include themes/darkmini/theme-mini.conf" >> /boot/EFI/refind/refind.conf
+# Bootloader
+1. Install bootloader
+```bash
+grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=VOID
 ```
-// TODO: Add manual stanza and other optimizations
 
 # Configure Kernel
 1. Set the defaults
@@ -182,14 +156,7 @@ nano /etc/dracut.conf.d/00-dracut-defaults.conf
 hostonly=yes
 compress="lz4"
 early_microcode=yes
-show_modules=yes
-```
-2. Add modules
-```bash
-nano /etc/dracut.conf.d/01-dracut-modules.conf
-
-## CONTENTS OF FILE ##
-add_dracutmodules+=" tpm2-tss "
+show_modules=no
 ```
 3. Reconfigure/regenerate the kernel
 ```bash
