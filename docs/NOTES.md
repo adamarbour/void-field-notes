@@ -181,11 +181,24 @@ echo "include themes/darkmini/theme-mini.conf" >> /boot/EFI/refind/refind.conf
 // TODO: Add manual stanza and other optimizations
 
 # Configure Kernel
-1. Set it to host-only mode
+1. Set the defaults
 ```bash
-echo hostonly=yes >> /etc/dracut.conf
+nano /etc/dracut.conf.d/00-dracut-defaults.conf
+
+## CONTENTS OF FILE ##
+hostonly=yes
+compress="lz4"
+early_microcode=yes
+show_modules=yes
 ```
-2. Reconfigure/regenerate the kernel
+2. Add modules
+```bash
+nano /etc/dracut.conf.d/01-dracut-modules.conf
+
+## CONTENTS OF FILE ##
+add_dracutmodules+=" tpm2-tss "
+```
+3. Reconfigure/regenerate the kernel
 ```bash
 xbps-reconfigure -fa
 ```
