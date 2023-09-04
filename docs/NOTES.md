@@ -178,6 +178,7 @@ git clone https://github.com/LightAir/darkmini /efi/EFI/refind/themes/darkmini
 
 echo "include themes/darkmini/theme-mini.conf" >> /boot/EFI/refind/refind.conf
 ```
+// TODO: Add manual stanza and other optimizations
 
 # Configure Kernel
 1. Set it to host-only mode
@@ -188,6 +189,8 @@ echo hostonly=yes >> /etc/dracut.conf
 ```bash
 xbps-reconfigure -fa
 ```
+// TODO: Show the kernel configurations + early loading
+
 # Networking
 For my purposes, I plan to use NetworkManager with an iwd backend.
 1. Enable dBus
@@ -238,5 +241,29 @@ sbctl sign /boot/EFI/tools/fwupx64.efi
 ```bash
 # /EFI/refind/refind.conf
 showtools <...>, fwupdate
+```
+5. 
+
+# Unlock LUKs from TPM
+1. Install tpm tools
+```bash
+xbps-install tpm2-tools
+```
+2. Create a secret key for TPM and add it to Luks container
+```bash
+dd if=/dev/urandom of=secret.bin bs=32 count=1
+cryptsetup luksAddKey /dev/disk/by-partlabel/cryptsystem secret.bin
+```
+3. Store the key in TPM
+```bash
+tpm2_createpolicy -Q --policy-pcr -l sha256:0,7 -L pcr.policy
+tpm2_createprimary -C e -G rsa -c primary.ctx -Q
+tpm2_create -C primary.ctx -L pcr.policy -i secret.bin -u seal.pub -r seal.priv -c seal.ctx -a "noda|adminwithpolicy|fixedparent|fixedtpm" -Q
+tpm2_load -C primary.ctx -u seal.pub -r seal.priv -c seal.ctx
+tpm2_evictcontrol -C o -c primary.ctx 0x81000000
+```
+4. Check and make sure you can unseal the key
+```bash
+tpm2_unseal -c 0x81000000 -p pcr:sha256:0,7
 ```
 5. 
