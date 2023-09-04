@@ -108,7 +108,7 @@ cp /var/db/xbps/keys/* /mnt/var/db/xbps/keys/
 ```
 3. Install the base system meant for my specifics (adjust for your needs) 
 ```bash
-XBPS_ARCH=$ARCH xbps-install -S -r /mnt -R "$REPO" base-system base-devel linux-firmware-amd linux-firmware-qualcomm btrfs-progs grub grub-x86_64-efi grub-btrfs grub-btrfs-runit iwd NetworkManager elogind sbctl sbsigntool gummiboot-efistub efibootmgr efitools efivar lz4 lzip zsh zsh-autosuggestions zsh-completions nano curl wget git void-repo-nonfree
+XBPS_ARCH=$ARCH xbps-install -S -r /mnt -R "$REPO" base-system base-devel linux-firmware-amd linux-firmware-qualcomm btrfs-progs grub grub-x86_64-efi iwd NetworkManager elogind sbctl sbsigntool gummiboot-efistub efibootmgr efitools efivar lz4 lzip zsh zsh-autosuggestions zsh-completions nano curl wget git void-repo-nonfree
 ```
 -- SEE /usr/share/doc/efibootmgr/README.voidlinux for instructions using efibootmgr to automatically manage EFI boot entries
 -- TODO Mount efivars readonly
@@ -146,10 +146,14 @@ chsh -s /bin/zsh
 ```bash
 grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=VOID
 ```
-2. Sign with sbctl to enable secure boot
+2. Sign with sbctl to enable secure boot //TODO: Fix this section
 ```bash
 sbctl create-keys
 sbctl sign /boot/EFI/VOID/grubx64.efi
+sbctl sign /boot/vmlinuz-<xxxx>
+sbctl sign /boot/grub/x86_64-efi/core.efi
+sbctl sign /boot/grub/x86_64-efi/grub.efi
+sbctl verify # Check if anything is missing
 sbctl enroll-keys -im
 ```
 3. 
@@ -205,6 +209,15 @@ ln -s /etc/sv/iwd /etc/runit/runsvdir/default
 ln -s /etc/sv/NetworkManager /etc/runit/runsvdir/default
 ```
 6. Connect to wifi...
+```bash
+nmcli device wifi connect <SSID> password <password>
+```
+7. Install avahi for ZeroConfig
+```bash
+xbps-install avahi
+ln -s /etc/sv/avahi-daemon /etc/runit/runsvdir/default/
+```
+8. 
 
 # Firmware updates
 1. Install firmware update
@@ -261,7 +274,7 @@ ln -s /etc/sv/crond /etc/runit/runsvdir/default
 ```
 ## Snapper & Schedule
 ```bash
-xbps-install snapper
+xbps-install snapper grub-btrfs grub-btrfs-runit
 
 # We need to unmount snapshots because snapper will try to add it to the configuration
 umount /.snapshots
@@ -285,3 +298,25 @@ sed -i 's/^TIMELINE_LIMIT_YEARLY.*/TIMELINE_LIMIT_YEARLY="0"/' /etc/snapper/conf
 sed -i 's/^ALLOW_GROUPS.*/ALLOW_GROUPS="wheel"/' /etc/snapper/configs/root
 ```
 ## Grub & Grub-btrfs
+```bash
+# Enable the snapshot watch
+ln -s /etc/sv/grub-btrfs /etc/runit/runsvdir/default/
+```
+# Graphics
+## Drivers
+```bash
+xbps-install xorg-server-xwayland xf86-video-amdgpu mesa-dri mesa-vaapi mesa-vdpau vulkan-loader mesa-vulkan-radeon
+```
+## Early Kernel Module
+```bash
+nano /etc/dracut.conf.d/10-dracut-amdgpu.conf
+
+## CONTENTS ##
+force_drivers+=" amdgpu "
+```
+NOTE: Regnerate initramfs
+
+# Quality of Life
+## Power Management
+
+## NTP
