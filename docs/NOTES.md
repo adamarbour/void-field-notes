@@ -15,7 +15,7 @@ ip link # wlp1s0
 ```
 3. Connect to wifi
 ```bash
-wpa_supplicant -B -i wlp1s0 -c <(wpa_passphrase MYSSID passphrase)
+wpa_passphrase <MYSSID> "<passphrase>" >> /etc/wpa_supplicant/wpa_supplicant.conf
 ```
 4. Bring the interface up
 ```bash
@@ -32,34 +32,29 @@ lsblk # nvme0n1
 ```
 We set up the partition scheme to be like so
 ```
-- EFI: 512M
-- cryptsystem: *remaining*
+- efi: 512M
+- btrfs: *remaining*
 ```
 2. Install the necessary programs
 ```bash
-xbps-install gptfdisk btrfs-progs cryptsetup
+xbps-install gptfdisk btrfs-progs
 ```
 3. Wipe and partition the drive
 ```bash
 sgdisk --zap-all /dev/nvme0n1
 sgdisk --clear \
 --new=1:0:+512MiB --typecode=1:ef00 --change-name=1:EFI \
---new=2:0:0 --typecode=2:8300 --change-name=2:cryptsystem \
+--new=2:0:0 --typecode=2:8300 --change-name=2:ROOTFS \
 /dev/nvme0n1
-```
-4. Setup cryptsystem
-```bash
-cryptsetup luksFormat --perf-no_read_workqueue --perf-no_write_workqueue --type luks2 --cipher aes-xts-plain64 --key-size 512 --iter-time 2000 --pbkdf argon2id --hash sha3-512 /dev/disk/by-partlabel/cryptsystem
-cryptsetup --allow-discards --perf-no_read_workqueue --perf-no_write_workqueue --persistent open /dev/disk/by-partlabel/cryptsystem cryptroot
 ```
 5. Format partitions
 ```bash
 mkfs.vfat -F32 -n EFI /dev/disk/by-partlabel/EFI
-mkfs.btrfs -L ROOTFS -f /dev/mapper/cryptroot
+mkfs.btrfs -L BTRFS -f /dev/disk/by-partlabel/ROOTFS
 ```
 6. Create subvolumes
 ```bash
-mount /dev/mapper/cryptroot /mnt
+mount -L BTRFS /mnt
 btrfs sub create /mnt/@ && \
 btrfs sub create /mnt/@home && \
 btrfs sub create /mnt/@swap && \
@@ -67,7 +62,6 @@ btrfs sub create /mnt/@abs && \
 btrfs sub create /mnt/@tmp && \
 btrfs sub create /mnt/@srv && \
 btrfs sub create /mnt/@snapshots && \
-btrfs sub create /mnt/@btrfs && \
 btrfs sub create /mnt/@log && \
 btrfs sub create /mnt/@cache
 umount /mnt
@@ -77,22 +71,22 @@ umount /mnt
 OPT_DEFAULT=noatime,compress-force=zstd,commit=120,space_cache=v2,ssd,discard=async,autodefrag
 EXT_OPT=nodev,nosuid,noexec
 
-mount -o $OPT_DEFAULT,subvol=@ /dev/mapper/cryptroot /mnt
+mount -o $OPT_DEFAULT,subvol=@ -L BTRFS /mnt
 mkdir -p /mnt/{home,.swapvol,var/abs,var/tmp,srv,.snapshots,.btrfs,var/log,boot,var/cache} # Create all the required directories
 
-mount -o $OPT_DEFAULT,subvol=@home /dev/mapper/cryptroot /mnt/home  && \
-mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@swap /dev/mapper/cryptroot /mnt/.swapvol && \
-mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@abs /dev/mapper/cryptroot /mnt/var/abs && \
-mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@tmp /dev/mapper/cryptroot /mnt/var/tmp && \
-mount -o $OPT_DEFAULT,subvol=@srv /dev/mapper/cryptroot /mnt/srv && \
-mount -o $OPT_DEFAULT,subvol=@snapshots /dev/mapper/cryptroot /mnt/.snapshots && \
-mount -o $OPT_DEFAULT,subvolid=5 /dev/mapper/cryptroot /mnt/.btrfs
-mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@log /dev/mapper/cryptroot /mnt/var/log && \
-mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@cache /dev/mapper/cryptroot /mnt/var/cache
+mount -o $OPT_DEFAULT,subvol=@home -L BTRFS /mnt/home  && \
+mount -o $OPT_DEFAULT,subvol=@srv -L BTRFS /mnt/srv && \
+mount -o $OPT_DEFAULT,subvol=@snapshots -L BTRFS /mnt/.snapshots && \
+mount -o $OPT_DEFAULT,subvolid=5 -L BTRFS /mnt/.btrfs
+mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@swap -L BTRFS /mnt/.swapvol && \
+mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@abs -L BTRFS /mnt/var/abs && \
+mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@tmp -L BTRFS /mnt/var/tmp && \
+mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@log -L BTRFS /mnt/var/log && \
+mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@cache -L BTRFS /mnt/var/cache
 ```
 8. Mount the EFI boot volume
 ```bash
-mount -o $EXT_OPT /dev/disk/by-partlabel/EFI /mnt/boot
+mount -o $EXT_OPT -L EFI /mnt/boot
 ```
 9. Create swap file
 ```bash
