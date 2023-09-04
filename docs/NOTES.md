@@ -146,6 +146,13 @@ chsh -s /bin/zsh
 ```bash
 grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=VOID
 ```
+2. Sign with sbctl to enable secure boot
+```bash
+sbctl create-keys
+sbctl sign /boot/EFI/VOID/grubx64.efi
+sbctl enroll-keys -im
+```
+3. 
 
 # Configure Kernel
 1. Set the defaults
@@ -240,3 +247,41 @@ tpm2_evictcontrol -C o -c primary.ctx 0x81000000
 tpm2_unseal -c 0x81000000 -p pcr:sha256:0,7
 ```
 5. 
+
+# Hibernate
+btrfs inspect-internal map-swapfile -r /swap/swapfile
+resume=UUID=4209c845-f495-4c43-8a03-5363dd433153
+resume_offset=swap_file_offset
+
+# Backup & Recovery
+## Ensure we have cron working
+```bash
+xbps-install cronie
+ln -s /etc/sv/crond /etc/runit/runsvdir/default
+```
+## Snapper & Schedule
+```bash
+xbps-install snapper
+
+# We need to unmount snapshots because snapper will try to add it to the configuration
+umount /.snapshots
+rm -r /.snapshots
+snapper -c root create-config /
+mount -a
+chmod 750 -R /.snapshots
+chown :wheel /.snapshots
+
+# Create an initial backup
+snapper -c root create --description "Initial"
+snapper -c root list # Check
+
+# Modify the configuration timings
+sed -i 's/^TIMELINE_MIN_AGE.*/TIMELINE_MIN_AGE="1800"/' /etc/snapper/configs/root
+sed -i 's/^TIMELINE_LIMIT_HOURLY.*/TIMELINE_LIMIT_HOURLY="0"/' /etc/snapper/configs/root
+sed -i 's/^TIMELINE_LIMIT_DAILY.*/TIMELINE_LIMIT_DAILY="7"/' /etc/snapper/configs/root
+sed -i 's/^TIMELINE_LIMIT_WEEKLY.*/TIMELINE_LIMIT_WEEKLY="0"/' /etc/snapper/configs/root
+sed -i 's/^TIMELINE_LIMIT_MONTHLY.*/TIMELINE_LIMIT_MONTHLY="0"/' /etc/snapper/configs/root
+sed -i 's/^TIMELINE_LIMIT_YEARLY.*/TIMELINE_LIMIT_YEARLY="0"/' /etc/snapper/configs/root
+sed -i 's/^ALLOW_GROUPS.*/ALLOW_GROUPS="wheel"/' /etc/snapper/configs/root
+```
+## Grub & Grub-btrfs
