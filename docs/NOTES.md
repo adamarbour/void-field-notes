@@ -32,18 +32,18 @@ lsblk # nvme0n1
 ```
 We set up the partition scheme to be like so
 ```
-- efi: 512M
+- efi: 300MiB
 - btrfs: *remaining*
 ```
 2. Install the necessary programs
 ```bash
-xbps-install gptfdisk btrfs-progs
+xbps-install gptfdisk btrfs-progs cryptsetup
 ```
 3. Wipe and partition the drive
 ```bash
 sgdisk --zap-all /dev/nvme0n1
 sgdisk --clear \
---new=1:0:+512MiB --typecode=1:ef00 --change-name=1:EFI \
+--new=1:0:+300MiB --typecode=1:ef00 --change-name=1:EFI \
 --new=2:0:0 --typecode=2:8300 --change-name=2:ROOTFS \
 /dev/nvme0n1
 ```
