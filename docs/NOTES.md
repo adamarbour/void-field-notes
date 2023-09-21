@@ -164,13 +164,21 @@ xchroot /mnt /bin/zsh
 ln -sf /usr/share/zoneinfo/<timezone> /etc/localtime
 hwclock -uw
 
-sed -i 's/#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/default/libc-locales
-xbps-reconfigure -f glibc-locales
-
 passwd # Set root password
 chsh -s /bin/zsh
 
 echo %HOSTNAME% > /etc/hostname
+
+sed -i 's/#KEYMAP="es"/KEYMAP="us"/' /etc/rc.conf
+sed -i 's/#FONT="lat9w-16"/FONT="ter-132n"/' /etc/rc.conf
+sed -i 's/#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/default/libc-locales
+xbps-reconfigure -f glibc-locales
+```
+7. Create an additional key for Luks
+```bash
+dd bs=512 count=80 if=/dev/urandom of=/root/crypto_keyfile.bin iflag=fullblock
+cryptsetup luksAddKey /dev/disk/by-partlabel/ROOTFS /root/crypto_keyfile.bin
+chmod 600 /root/crypto_keyfile.bin
 ```
 
 # Configure Initram
@@ -183,16 +191,14 @@ hostonly=yes
 compress="lz4"
 early_microcode=yes
 show_modules=no
+
+force_drivers+=" btrfs amdgpu "
+
 ```
-2. Load the amdgpu
+2. Regenerate initram
 ```bash
-nano /etc/dracut.conf.d/10-dracut-amdgpu.conf
-
-## CONTENTS ##
-force_drivers+=" amdgpu "
+dracut --force --kver <version>
 ```
-
-
 
 # Bootloader
 1. Install bootloader
