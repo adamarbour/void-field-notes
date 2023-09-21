@@ -105,7 +105,14 @@ mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@lib_docker -L BTRFS /mnt/var/lib/docker
 ```bash
 mount -o $EXT_OPT -L EFI /mnt/boot/efi
 ```
-
+9. Backup the LUKs header just in case
+```bash
+mkdir /mnt/var/backup/cryptsetup -p
+cryptsetup luksHeaderBackup /dev/disk/by-partlabel/ROOTFS --header-backup-file /mnt/var/backup/cryptsetup/VOID.luks.bin
+# Check it
+cryptsetup luksDump /mnt/var/backup/cryptsetup/VOID.luks.bin
+```
+10. 
 # Bootstrap Install Void
 1. Install pre-reqs
 ```bash
