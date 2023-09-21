@@ -127,7 +127,7 @@ cp /var/db/xbps/keys/* /mnt/var/db/xbps/keys/
 ```
 3. Install the base system meant for my specifics (adjust for your needs) 
 ```bash
-XBPS_ARCH=$ARCH xbps-install -S -r /mnt -R "$REPO" base-system base-devel linux-firmware linux-firmware-amd linux-firmware-network linux-firmware-qualcomm cryptsetup lvm2 btrfs-progs grub grub-x86_64-efi grub-terminus grub-btrfs grub-btrfs-runit terminus-font iwd NetworkManager avahi nss-mdns elogind sbctl sbsigntool gummiboot-efistub efibootmgr efitools efivar lz4 lzop lzip lrzip acpid cronie chrony socklog-void sudo zsh zsh-autosuggestions zsh-completions nnn htop restic snapper btrbk rclone rsync nano curl wget git ldns void-repo-nonfree fwupd fwupd-efi apparmor docker docker-compose containerd
+XBPS_ARCH=$ARCH xbps-install -S -r /mnt -R "$REPO" base-system base-devel linux-firmware linux-firmware-amd linux-firmware-network linux-firmware-qualcomm cryptsetup lvm2 btrfs-progs grub grub-x86_64-efi grub-terminus grub-btrfs grub-btrfs-runit terminus-font iwd NetworkManager avahi nss-mdns elogind polkit-elogind dbus-elogind sbctl sbsigntool gummiboot-efistub efibootmgr efitools efivar lz4 lzop lzip lrzip acpid cronie chrony socklog-void sudo zsh zsh-autosuggestions zsh-completions nnn htop restic snapper btrbk rclone rsync nano curl wget git ldns void-repo-nonfree fwupd fwupd-efi apparmor docker docker-compose containerd xdg-user-dirs xdg-user-dirs-gtk xdg-utils
 
 # GRAPHICS
 mesa-dri vulkan-loader mesa-vulkan-radeon mesa-vaapi mesa-vdpau xf86-video-amdgpu
@@ -136,12 +136,8 @@ pipewire wireplumber-elogind alsa-pipewire libjack-pipewire bluez libspa-bluetoo
 # PRINTING
 cups cups-filters hplip
 # DESKTOP EXPERIENCE
-gnome gnome-apps
+gnome gnome-apps gnome-browser-connector
 ```
-
--- SEE /usr/share/doc/efibootmgr/README.voidlinux for instructions using efibootmgr to automatically manage EFI boot entries
--- TODO Mount efivars readonly
-
 4. Generate fstab
 ```bash
 git clone https://github.com/glacion/genfstab
@@ -212,7 +208,7 @@ nano /etc/default/grub
 ## CONTENTS CHANGED
 GRUB_TIMEOUT=3
 GRUB_CMDLINE_LINUX_DEFAULT="loglevel=3 quiet"
-GRUB_CMDLINE_LINUX="rd.luks.name=10e467ce-785a-401c-b2c5-9379090653f4=cryptroot rd.luks.options=10e467ce-785a-401c-b2c5-9379090653f4=discard,password-echo=no,keyfile-timeout=10s rd.lvm.lv=vg1/VOID-root rd.lvm.lv=vg1/VOID-swap resume=/dev/mapper/vg1-VOID--swap root=/dev/mapper/vg1-VOID--root rootfstype=btrfs rootflags=subvol=@ rd.luks.key=10e467ce-785a-401c-b2c5-9379090653f4=/root/crypto_keyfile.bin"
+GRUB_CMDLINE_LINUX="rd.luks.name=10e467ce-785a-401c-b2c5-9379090653f4=cryptroot rd.luks.options=10e467ce-785a-401c-b2c5-9379090653f4=discard,password-echo=no,keyfile-timeout=10s rd.lvm.lv=vg1/VOID-root rd.lvm.lv=vg1/VOID-swap resume=/dev/mapper/vg1-VOID--swap root=/dev/mapper/vg1-VOID--root rootfstype=btrfs rootflags=subvol=@ rd.luks.key=/root/crypto_keyfile.bin:/"
 GRUB_PRELOAD_MODULES="part_gpt cryptodisk luks2 lvm btrfs"
 GRUB_ENABLE_CRYPTODISK=y
 GRUB_GFXMODE=1920x1080x24
@@ -245,17 +241,27 @@ swapoff -a
 umount -R /mnt
 reboot now
 ```
-
-
 ---
+# Post Installation Procedure
+## Minimum services
+We need to enable some basic services now that we have rebooted into our working environment.
+```bash
+ln -s /etc/sv/acpid /etc/runit/runsvdir/default
+ln -s /etc/sv/dbus /etc/runit/runsvdir/default
+ln -s /etc/sv/elogind /etc/runit/runsvdir/default
+ln -s /etc/sv/crond /etc/runit/runsvdir/default
+ln -s /etc/sv/acpid /etc/runit/runsvdir/default
+ln -s /etc/sv/socklog-unix /etc/runit/runsvdir/default
+ln -s /etc/sv/bluetoothd /etc/runit/runsvdir/default
+```
+## Networking
+
+## Snapper Backup
+
 
 # Networking
 For my purposes, I plan to use NetworkManager with an iwd backend.
-1. Enable dBus
-```bash
-ln -s /etc/sv/dbus /etc/runit/runsvdir/default
-ln -s /etc/sv/elogind /etc/runit/runsvdir/default
-```
+
 2. Setup Network Manager to use iwd as backend
 ```bash
 mkdir -p /etc/NetworkManager/conf.d/
