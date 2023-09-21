@@ -112,7 +112,7 @@ cryptsetup luksHeaderBackup /dev/disk/by-partlabel/ROOTFS --header-backup-file /
 # Check it
 cryptsetup luksDump /mnt/var/backup/cryptsetup/VOID.luks.bin
 ```
-10. 
+
 # Bootstrap Install Void
 1. Install pre-reqs
 ```bash
@@ -121,16 +121,27 @@ xbps-install xtools git
 2. Set variables and copy keys for chroot
 ```bash
 REPO=https://repo-default.voidlinux.org/current
-ARCH=x86_64-musl
+ARCH=x86_64
 mkdir -p /mnt/var/db/xbps/keys
 cp /var/db/xbps/keys/* /mnt/var/db/xbps/keys/
 ```
 3. Install the base system meant for my specifics (adjust for your needs) 
 ```bash
-XBPS_ARCH=$ARCH xbps-install -S -r /mnt -R "$REPO" base-system base-devel linux-firmware-amd linux-firmware-qualcomm btrfs-progs grub grub-x86_64-efi iwd NetworkManager elogind sbctl sbsigntool gummiboot-efistub efibootmgr efitools efivar lz4 lzip zsh zsh-autosuggestions zsh-completions nano curl wget git void-repo-nonfree
+XBPS_ARCH=$ARCH xbps-install -S -r /mnt -R "$REPO" base-system base-devel linux-firmware linux-firmware-amd linux-firmware-network linux-firmware-qualcomm cryptsetup lvm2 btrfs-progs grub grub-x86_64-efi grub-terminus grub-btrfs grub-btrfs-runit terminus-font iwd NetworkManager avahi nss-mdns elogind sbctl sbsigntool gummiboot-efistub efibootmgr efitools efivar lz4 lzop lzip lrzip acpid cronie chrony socklog-void sudo zsh zsh-autosuggestions zsh-completions nnn htop restic snapper btrbk rclone rsync nano curl wget git ldns void-repo-nonfree fwupd fwupd-efi apparmor docker docker-compose containerd
+
+# GRAPHICS
+mesa-dri vulkan-loader mesa-vulkan-radeon mesa-vaapi mesa-vdpau
+# AUDIO
+pipewire wireplumber-elogind alsa-pipewire libjack-pipewire bluez libspa-bluetooth easyeffects
+# PRINTING
+cups cups-filters hplip
+# DESKTOP EXPERIENCE
+gnome gnome-apps
 ```
+
 -- SEE /usr/share/doc/efibootmgr/README.voidlinux for instructions using efibootmgr to automatically manage EFI boot entries
 -- TODO Mount efivars readonly
+
 4. Generate fstab
 ```bash
 git clone https://github.com/glacion/genfstab
