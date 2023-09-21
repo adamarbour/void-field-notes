@@ -193,6 +193,7 @@ early_microcode=yes
 show_modules=no
 
 force_drivers+=" amdgpu "
+add_drivers+=" vfat nls_cp437 nls_iso8859_1 "
 install_items+=" /root/crypto_keyfile.bin "
 
 ```
@@ -211,7 +212,7 @@ nano /etc/default/grub
 ## CONTENTS CHANGED
 GRUB_TIMEOUT=3
 GRUB_CMDLINE_LINUX_DEFAULT="loglevel=3 quiet"
-GRUB_CMDLINE_LINUX="rd.luks.name=10e467ce-785a-401c-b2c5-9379090653f4=cryptroot rd.luks.options=10e467ce-785a-401c-b2c5-9379090653f4=discard,password-echo=no,keyfile-timeout=10s rd.lvm.lv=vg1/VOID-root rd.lvm.lv=vg1/VOID-swap rd.luks.key=10e467ce-785a-401c-b2c5-9379090653f4=/root/crypto_keyfile.bin resume=/dev/mapper/vg1-VOID--swap root=/dev/mapper/vg1-VOID--root rootfstype=btrfs rootflags=subvol=@"
+GRUB_CMDLINE_LINUX="rd.luks.name=10e467ce-785a-401c-b2c5-9379090653f4=cryptroot rd.luks.options=10e467ce-785a-401c-b2c5-9379090653f4=discard,password-echo=no,keyfile-timeout=10s rd.lvm.lv=vg1/VOID-root rd.lvm.lv=vg1/VOID-swap resume=/dev/mapper/vg1-VOID--swap root=/dev/mapper/vg1-VOID--root rootfstype=btrfs rootflags=subvol=@ rd.luks.key=10e467ce-785a-401c-b2c5-9379090653f4=/root/crypto_keyfile.bin"
 GRUB_PRELOAD_MODULES="part_gpt cryptodisk luks2 lvm btrfs"
 GRUB_ENABLE_CRYPTODISK=y
 GRUB_GFXMODE=1920x1080x24
