@@ -193,39 +193,60 @@ early_microcode=yes
 show_modules=no
 
 force_drivers+=" amdgpu "
+install_items+=" /root/crypto_keyfile.bin "
 
 ```
 2. Regenerate initram
 ```bash
 dracut --force --kver <version>
+chmod 600 /boot/vmlinuz-*
+chmod 600 /boot/initramfs-*
 ```
 
 # Bootloader
-1. Install bootloader
+1. Modify grub config
 ```bash
-grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=VOID
+nano /etc/default/grub
+
+## CONTENTS CHANGED
+GRUB_TIMEOUT=3
+GRUB_CMDLINE_LINUX_DEFAULT="loglevel=3 quiet"
+GRUB_CMDLINE_LINUX="rd.luks.name=10e467ce-785a-401c-b2c5-9379090653f4=cryptroot rd.luks.options=10e467ce-785a-401c-b2c5-9379090653f4=discard,password-echo=no,keyfile-timeout=10s rd.lvm.lv=vg1/vg1-VOID-root rd.lvm.lv=vg1/vg1-VOID-swap rd.luks.key=10e467ce-785a-401c-b2c5-9379090653f4=/root/crypto_keyfile.bin resume=UUID=f472c306-cd57-42ce-b044-471b9c640d8c root=UUID=494e8465-f34f-4947-bcec-09a15e2caba6"
+GRUB_PRELOAD_MODULES="part_gpt cryptodisk luks2 lvm"
+GRUB_ENABLE_CRYPTODISK=y
+GRUB_GFXMODE=1920x1080x24
 ```
-2. Sign with sbctl to enable secure boot //TODO: Fix this section
+3. Install bootloader
 ```bash
-sbctl create-keys
-sbctl sign /boot/EFI/VOID/grubx64.efi
-sbctl sign /boot/vmlinuz-<xxxx>
-sbctl sign /boot/grub/x86_64-efi/core.efi
-sbctl sign /boot/grub/x86_64-efi/grub.efi
-sbctl verify # Check if anything is missing
-sbctl enroll-keys -im
+grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=VOID --recheck
+grub-mkconfig -o /boot/grub/grub.cfg
 ```
-3. 
-
-
-
-3. Reconfigure/regenerate the kernel
+2. Patch the Grub image
 ```bash
-xbps-reconfigure -fa
+nano /boot/grub/grub-pre.cfg
+
+# Contents of file. NOTE: uuid is the id without dashes of the luks device
+set crypto_uuid=10e467ce785a401cb2c59379090653f4
+cryptomount -u $crypto_uuid
+set root=lvm/vg1-VOID-root
+set prefix=($root)/boot/grub
+insmod normal
+normal
+```
+3. Create the new image
+```bash
+grub-mkimage -p /boot/grub -O x86_64-efi -c /boot/grub/grub-pre.cfg -o /tmp/grubx64.efi part_gpt cryptodisk luks2 lvm gcry_rijndael pbkdf2 gcry_sha256 gcry_sha512 btrfs && install -v /tmp/grubx64.efi /boot/efi/EFI/VOID/grubx64.efi
+```
+# Reboot to ensure we can get into the system for post install
+```bash
+exit
+swapoff -a
+umount -R /mnt
+reboot now
 ```
 
 
-// TODO: Show the kernel configurations + early loading
+---
 
 # Networking
 For my purposes, I plan to use NetworkManager with an iwd backend.
