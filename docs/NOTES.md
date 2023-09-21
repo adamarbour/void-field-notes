@@ -71,14 +71,15 @@ mkfs.btrfs -L BTRFS -n 16k /dev/mapper/vg1-VOID--root -f
 ```bash
 mount -L BTRFS /mnt
 btrfs sub create /mnt/@ && \
+btrfs sub create /mnt/@root && \
 btrfs sub create /mnt/@home && \
-btrfs sub create /mnt/@swap && \
 btrfs sub create /mnt/@abs && \
 btrfs sub create /mnt/@tmp && \
 btrfs sub create /mnt/@srv && \
 btrfs sub create /mnt/@snapshots && \
-btrfs sub create /mnt/@log && \
-btrfs sub create /mnt/@cache
+btrfs sub create /mnt/@var_log && \
+btrfs sub create /mnt/@var_cache
+btrfs sub create /mnt/@lib_docker
 umount /mnt
 ```
 7. Mount the filesystem to bootstrap
@@ -87,26 +88,22 @@ OPT_DEFAULT=noatime,compress-force=zstd,commit=120,space_cache=v2,ssd,discard=as
 EXT_OPT=nodev,nosuid,noexec
 
 mount -o $OPT_DEFAULT,subvol=@ -L BTRFS /mnt
-mkdir -p /mnt/{home,.swapvol,var/abs,var/tmp,srv,.snapshots,.btrfs,var/log,boot,var/cache} # Create all the required directories
+mkdir -p /mnt/{root,home,var/abs,var/tmp,srv,.snapshots,.btrfs,var/log,boot/efi,var/cache/xbps,var/lib/docker} # Create all the required directories
 
+mount -o $OPT_DEFAULT,subvol=@root -L BTRFS /mnt/root  && \
 mount -o $OPT_DEFAULT,subvol=@home -L BTRFS /mnt/home  && \
 mount -o $OPT_DEFAULT,subvol=@srv -L BTRFS /mnt/srv && \
 mount -o $OPT_DEFAULT,subvol=@snapshots -L BTRFS /mnt/.snapshots && \
-mount -o $OPT_DEFAULT,subvolid=5 -L BTRFS /mnt/.btrfs
-mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@swap -L BTRFS /mnt/.swapvol && \
+mount -o $OPT_DEFAULT,subvolid=5 -L BTRFS /mnt/.btrfs && \
 mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@abs -L BTRFS /mnt/var/abs && \
 mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@tmp -L BTRFS /mnt/var/tmp && \
-mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@log -L BTRFS /mnt/var/log && \
-mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@cache -L BTRFS /mnt/var/cache
+mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@var_log -L BTRFS /mnt/var/log && \
+mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@var_cache -L BTRFS /mnt/var/cache/xbps && \
+mount -o $OPT_DEFAULT,$EXT_OPT,subvol=@lib_docker -L BTRFS /mnt/var/lib/docker
 ```
 8. Mount the EFI boot volume
 ```bash
-mount -o $EXT_OPT -L EFI /mnt/boot
-```
-9. Create swap file
-```bash
-btrfs filesystem mkswapfile --size 32g --uuid clear /mnt/.swapvol/swapfile
-swapon /mnt/.swapvol/swapfile
+mount -o $EXT_OPT -L EFI /mnt/boot/efi
 ```
 
 # Bootstrap Install Void
