@@ -211,8 +211,8 @@ nano /etc/default/grub
 ## CONTENTS CHANGED
 GRUB_TIMEOUT=3
 GRUB_CMDLINE_LINUX_DEFAULT="loglevel=3 quiet"
-GRUB_CMDLINE_LINUX="rd.luks.name=10e467ce-785a-401c-b2c5-9379090653f4=cryptroot rd.luks.options=10e467ce-785a-401c-b2c5-9379090653f4=discard,password-echo=no,keyfile-timeout=10s rd.lvm.lv=vg1/vg1-VOID--root rd.lvm.lv=vg1/vg1-VOID--swap rd.luks.key=10e467ce-785a-401c-b2c5-9379090653f4=/root/crypto_keyfile.bin resume=UUID=f472c306-cd57-42ce-b044-471b9c640d8c root=UUID=494e8465-f34f-4947-bcec-09a15e2caba6"
-GRUB_PRELOAD_MODULES="part_gpt cryptodisk luks2 lvm btrfs normal"
+GRUB_CMDLINE_LINUX="rd.luks.name=10e467ce-785a-401c-b2c5-9379090653f4=cryptroot rd.luks.options=10e467ce-785a-401c-b2c5-9379090653f4=discard,password-echo=no,keyfile-timeout=10s rd.lvm.lv=vg1/VOID-root rd.lvm.lv=vg1/VOID-swap rd.luks.key=10e467ce-785a-401c-b2c5-9379090653f4=/root/crypto_keyfile.bin resume=UUID=f472c306-cd57-42ce-b044-471b9c640d8c root=UUID=494e8465-f34f-4947-bcec-09a15e2caba6"
+GRUB_PRELOAD_MODULES="part_gpt cryptodisk luks2 lvm btrfs"
 GRUB_ENABLE_CRYPTODISK=y
 GRUB_GFXMODE=1920x1080x24
 ```
@@ -229,7 +229,7 @@ nano /boot/grub/grub-pre.cfg
 set crypto_uuid=10e467ce785a401cb2c59379090653f4
 cryptomount -u $crypto_uuid
 set root=lvm/vg1-VOID--root
-set prefix=($root)/boot/grub
+set prefix=($root)/@/boot/grub
 insmod normal
 normal
 ```
