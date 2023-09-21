@@ -252,6 +252,7 @@ ln -s /etc/sv/elogind /etc/runit/runsvdir/default
 ln -s /etc/sv/crond /etc/runit/runsvdir/default
 ln -s /etc/sv/acpid /etc/runit/runsvdir/default
 ln -s /etc/sv/socklog-unix /etc/runit/runsvdir/default
+ln -s /etc/sv/nanoklogd /etc/runit/runsvdir/default
 ln -s /etc/sv/bluetoothd /etc/runit/runsvdir/default
 ```
 ## Networking
