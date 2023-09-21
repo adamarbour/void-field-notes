@@ -130,7 +130,7 @@ cp /var/db/xbps/keys/* /mnt/var/db/xbps/keys/
 XBPS_ARCH=$ARCH xbps-install -S -r /mnt -R "$REPO" base-system base-devel linux-firmware linux-firmware-amd linux-firmware-network linux-firmware-qualcomm cryptsetup lvm2 btrfs-progs grub grub-x86_64-efi grub-terminus grub-btrfs grub-btrfs-runit terminus-font iwd NetworkManager avahi nss-mdns elogind sbctl sbsigntool gummiboot-efistub efibootmgr efitools efivar lz4 lzop lzip lrzip acpid cronie chrony socklog-void sudo zsh zsh-autosuggestions zsh-completions nnn htop restic snapper btrbk rclone rsync nano curl wget git ldns void-repo-nonfree fwupd fwupd-efi apparmor docker docker-compose containerd
 
 # GRAPHICS
-mesa-dri vulkan-loader mesa-vulkan-radeon mesa-vaapi mesa-vdpau
+mesa-dri vulkan-loader mesa-vulkan-radeon mesa-vaapi mesa-vdpau xf86-video-amdgpu
 # AUDIO
 pipewire wireplumber-elogind alsa-pipewire libjack-pipewire bluez libspa-bluetooth easyeffects
 # PRINTING
@@ -146,6 +146,8 @@ gnome gnome-apps
 ```bash
 git clone https://github.com/glacion/genfstab
 ./genfstab/genfstab -L /mnt >> /mnt/etc/fstab
+
+echo "tmpfs /tmp tmpfs defaults,noatime,mode=1777,size=32G 0 0" >> /mnt/etc/fstab
 ```
 5. Change root into the target system
 ```bash
@@ -159,8 +161,6 @@ xchroot /mnt /bin/zsh
 ```
 6. Configure the target system
 ```bash
-echo %HOSTNAME% > /etc/hostname
-
 ln -sf /usr/share/zoneinfo/<timezone> /etc/localtime
 hwclock -uw
 
@@ -169,7 +169,30 @@ xbps-reconfigure -f glibc-locales
 
 passwd # Set root password
 chsh -s /bin/zsh
+
+echo %HOSTNAME% > /etc/hostname
 ```
+
+# Configure Initram
+1. Set the defaults
+```bash
+nano /etc/dracut.conf.d/00-dracut-defaults.conf
+
+## CONTENTS OF FILE ##
+hostonly=yes
+compress="lz4"
+early_microcode=yes
+show_modules=no
+```
+2. Load the amdgpu
+```bash
+nano /etc/dracut.conf.d/10-dracut-amdgpu.conf
+
+## CONTENTS ##
+force_drivers+=" amdgpu "
+```
+
+
 
 # Bootloader
 1. Install bootloader
@@ -188,21 +211,14 @@ sbctl enroll-keys -im
 ```
 3. 
 
-# Configure Kernel
-1. Set the defaults
-```bash
-nano /etc/dracut.conf.d/00-dracut-defaults.conf
 
-## CONTENTS OF FILE ##
-hostonly=yes
-compress="lz4"
-early_microcode=yes
-show_modules=no
-```
+
 3. Reconfigure/regenerate the kernel
 ```bash
 xbps-reconfigure -fa
 ```
+
+
 // TODO: Show the kernel configurations + early loading
 
 # Networking
@@ -267,34 +283,7 @@ showtools <...>, fwupdate
 ```
 5. 
 
-# Unlock LUKs from TPM
-1. Install tpm tools
-```bash
-xbps-install tpm2-tools
-```
-2. Create a secret key for TPM and add it to Luks container
-```bash
-dd if=/dev/urandom of=secret.bin bs=32 count=1
-cryptsetup luksAddKey /dev/disk/by-partlabel/cryptsystem secret.bin
-```
-3. Store the key in TPM
-```bash
-tpm2_createpolicy -Q --policy-pcr -l sha256:0,7 -L pcr.policy
-tpm2_createprimary -C e -G rsa -c primary.ctx -Q
-tpm2_create -C primary.ctx -L pcr.policy -i secret.bin -u seal.pub -r seal.priv -c seal.ctx -a "noda|adminwithpolicy|fixedparent|fixedtpm" -Q
-tpm2_load -C primary.ctx -u seal.pub -r seal.priv -c seal.ctx
-tpm2_evictcontrol -C o -c primary.ctx 0x81000000
-```
-4. Check and make sure you can unseal the key
-```bash
-tpm2_unseal -c 0x81000000 -p pcr:sha256:0,7
-```
-5. 
 
-# Hibernate
-btrfs inspect-internal map-swapfile -r /swap/swapfile
-resume=UUID=4209c845-f495-4c43-8a03-5363dd433153
-resume_offset=swap_file_offset
 
 # Backup & Recovery
 ## Ensure we have cron working
@@ -337,14 +326,8 @@ ln -s /etc/sv/grub-btrfs /etc/runit/runsvdir/default/
 ```bash
 xbps-install xorg-server-xwayland xf86-video-amdgpu mesa-dri mesa-vaapi mesa-vdpau vulkan-loader mesa-vulkan-radeon
 ```
-## Early Kernel Module
-```bash
-nano /etc/dracut.conf.d/10-dracut-amdgpu.conf
 
-## CONTENTS ##
-force_drivers+=" amdgpu "
-```
-NOTE: Regnerate initramfs
+
 
 # Quality of Life
 ## Power Management
