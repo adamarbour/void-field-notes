@@ -47,12 +47,27 @@ sgdisk --clear \
 --new=2:0:0 --typecode=2:8300 --change-name=2:ROOTFS \
 /dev/nvme0n1
 ```
-5. Format partitions
+5. Format EFI partition
 ```bash
 mkfs.vfat -F32 -n EFI /dev/disk/by-partlabel/EFI
-mkfs.btrfs -L BTRFS -f /dev/disk/by-partlabel/ROOTFS
 ```
-6. Create subvolumes
+6. Setup the crypt volume
+```bash
+cryptsetup --type luks2 --cipher aes-xts-plain --hash sha512 --iter-time 3000 --key-size 512 --pbkdf pbkdf2 --use-urandom --verify-passphrase luksFormat /dev/disk/by-partlabel/ROOTFS
+cryptsetup luksOpen /dev/disk/by-partlabel/ROOTFS cryptroot
+```
+7. Setup the volume group and create the swap
+```bash
+vgcreate vg1 /dev/mapper/cryptroot
+lvcreate -L 34GB -n VOID-swap vg1
+lvcreate -l 100%FREE -n VOID-root vg1
+
+mkswap -L SWAP /dev/mapper/vg1-VOID--swap
+swapon /dev/mapper/vg1-VOID--swap
+
+mkfs.btrfs -L BTRFS -n 16k /dev/mapper/vg1-VOID--root -f
+```
+9. Create subvolumes
 ```bash
 mount -L BTRFS /mnt
 btrfs sub create /mnt/@ && \
