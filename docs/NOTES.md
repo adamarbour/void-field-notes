@@ -192,7 +192,7 @@ compress="lz4"
 early_microcode=yes
 show_modules=no
 
-force_drivers+=" btrfs amdgpu "
+force_drivers+=" amdgpu "
 
 ```
 2. Regenerate initram
