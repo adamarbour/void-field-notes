@@ -134,7 +134,7 @@ mesa-dri vulkan-loader mesa-vulkan-radeon mesa-vaapi mesa-vdpau xf86-video-amdgp
 # AUDIO
 pipewire wireplumber-elogind alsa-pipewire libjack-pipewire bluez libspa-bluetooth easyeffects
 # PRINTING
-cups cups-filters hplip
+cups cups-pk-helper cups-filters foomatic-db foomatic-db-engine hplip
 # DESKTOP EXPERIENCE
 gnome gnome-apps gnome-browser-connector
 ```
@@ -262,28 +262,55 @@ ln -s /etc/sv/nanoklogd /etc/runit/runsvdir/default
 ln -s /etc/sv/bluetoothd /etc/runit/runsvdir/default
 ```
 ## Networking
-1. Modify the Network Manager configuration
+1. Setup wpa_supplicant
+```bash
+cp /etc/wpa_supplicant/wpa_supplicant.conf /etc/wpa_supplicant/wpa_supplicant-wlp1s0.conf
+
+wpa_passphrase <SSID> <PASSWORD> >> /etc/wpa_supplicant/wpa_supplicant-wlp1s0.conf
+```
+2. Enable wpa_supplicnat and dhcpcd
+```bash
+ln -s /etc/sv/dhcpcd /var/service
+ln -s /etc/sv/wpa_supplicant /var/service
+ln -s /etc/sv/avahi-daemon /etc/runit/runsvdir/default/
+
+sv up dhcpcd
+sv up wpa_supplicant
+sv up avahi-daemon
+
+wpa_supplicant -B -i wlp1s0 -c /etc/wpa_supplicant/wpa_supplicant-wlp1s0.conf
+```
+3. Setup NetworkManager
 ```bash
 nano /etc/NetworkManager/conf.d/20-connectivity.conf
 ---
 [connectivity]
 uri=http://nmcheck.gnome.org/check_network_status.txt
 ```
-2. Set DHCP
+2. Set DHCPCD as NetworkManager's DNS
 ```bash
 nano /etc/NetworkManager/conf.d/dhcp-client.conf
 ---
 [main]
 dhcp=dhcpcd
 ```
-3. Enable DHCPCD & Network Manager
+3. Add additional packages
 ```bash
-ln -s /etc/sv/dhcpcd /etc/runit/runsvdir/default
-ln -s /etc/sv/NetworkManager /etc/runit/runsvdir/default
+xbps-install NetworkManager-openvpn NetworkManager-openconnect NetworkManager-vpnc NetworkManager-l2tp network-manager-applet
 ```
-4. 
+4. Disable DHPCD and wpa_supplicant and enable NetworkManager
+```bash
+touch /etc/sv/dhcpcd/down
+touch /etc/sv/wpa_supplicant/down
 
-## Snapper Backup
+sv down dhcpcd
+sv down wpa_supplicant
+
+ln -s /etc/sv/NetworkManager /var/service
+sv up NetworkManager
+```
+
+
 
 
 # Networking
