@@ -136,7 +136,7 @@ pipewire wireplumber-elogind alsa-pipewire libjack-pipewire bluez libspa-bluetoo
 # PRINTING
 cups cups-pk-helper cups-filters foomatic-db foomatic-db-engine hplip
 # DESKTOP EXPERIENCE
-gnome gnome-apps gnome-browser-connector
+gnome gnome-apps gnome-browser-connector gnome-software
 ```
 4. Generate fstab
 ```bash
@@ -213,7 +213,7 @@ nano /etc/default/grub
 
 ## CONTENTS CHANGED
 GRUB_TIMEOUT=3
-GRUB_CMDLINE_LINUX_DEFAULT="loglevel=3 quiet"
+GRUB_CMDLINE_LINUX_DEFAULT="apparmor=1 security=apparmor loglevel=3 quiet"
 GRUB_CMDLINE_LINUX="rd.luks.name=10e467ce-785a-401c-b2c5-9379090653f4=cryptroot rd.luks.options=10e467ce-785a-401c-b2c5-9379090653f4=discard,password-echo=no,keyfile-timeout=10s rd.lvm.lv=vg1/VOID-root rd.lvm.lv=vg1/VOID-swap resume=/dev/mapper/vg1-VOID--swap root=/dev/mapper/vg1-VOID--root rootfstype=btrfs rootflags=subvol=@ rd.luks.key=/root/crypto_keyfile.bin:/"
 GRUB_PRELOAD_MODULES="part_gpt cryptodisk luks2 lvm btrfs"
 GRUB_ENABLE_CRYPTODISK=y
@@ -310,48 +310,111 @@ ln -s /etc/sv/NetworkManager /var/service
 sv up NetworkManager
 ```
 
+## Enable Desktop
+1. Setup pipewire to autostart
+```bash
+ln -s /usr/share/applications/pipewire.desktop /etc/xdg/autostart/pipewire.desktop
+```
+2. Setup pipewire to launch wireplumber and pulse support
+```bash
+mkdir -p /etc/pipewire/pipewire.conf.d
+ln -s /usr/share/examples/wireplumber/10-wireplumber.conf /etc/pipewire/pipewire.conf.d/
+ln -s /usr/share/examples/pipewire/20-pipewire-pulse.conf /etc/pipewire/pipewire.conf.d/
+```
+3. Configure ALSA and JACK
+```bash
+mkdir -p /etc/alsa/conf.d
+ln -s /usr/share/alsa/alsa.conf.d/50-pipewire.conf /etc/alsa/conf.d
+ln -s /usr/share/alsa/alsa.conf.d/99-pipewire-default.conf /etc/alsa/conf.d
+
+echo "/usr/lib/pipewire-0.3/jack" > /etc/ld.so.conf.d/pipewire-jack.conf
+ldconfig
+```
+4. Enable gdm service
+```bash
+ln -s /etc/sv/gdm /var/service
+```
+
+## Trim Setup
+1. Ensure discards are enabled across the board
+```bash
+nano /etc/lvm/lvm.conf
+--
+issue_discards=1
+```
+```bash
+nano /etc/default/grub
+--
+# Append to the existing line
+GRUB_CMDLINE_LINUX_DEFAULT="rd.luks.allow-discards"
+
+update-grub
+# reboot
+```
+2. Enable weekly trim
+```bash
+nano /etc/cron.weekly/fstrim
+
+--
+#!/bin/sh
+
+fstrim /
+
+chmod u+x /etc/cron.weekly/fstrim
+```
+
+## AppArmor
+We already installed it and added it to the command line during the initial setup.
+
+## Flatpak
+```bash
+sudo xbps-install -S flatpak
+flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+```
+## Nix Package Manager
+```bash
+sudo xbps-install -Sy nix
+sudo ln -s /etc/sv/nix-daemon /var/service/
+source /etc/profile
+nix-channel --add https://nixos.org/channels/nixos-23.05 nixpkgs # Or latest
+nix-channel --update
+nix-channel --list
+
+sudo ln -s "$HOME/.nix-profile/share/applications" "$HOME/.local/share/applications/nix-env"
+```
+
+## Docker
+1. Configure btrfs storage driver
+```bash
+sudo nano /etc/docker/daemon.json
+
+--
+{
+  "storage-driver": "btrfs"
+}
+```
+2. Enable docker
+```bash
+sudo ln -s /etc/sv/containerd /var/service
+sudo ln -s /etc/sv/docker /var/service
+```
+3. Ensure user is in docker group
+```bash
+sudo groupadd docker
+sudo usermod -aG docker ${USER}
+```
+4. Confirm storage driver
+```bash
+docker info
+
+--
+ Containers: 0
+ Images: 0
+ Storage Driver: btrfs
+```
+---
 
 
-
-# Networking
-For my purposes, I plan to use NetworkManager with an iwd backend.
-
-2. Setup Network Manager to use iwd as backend
-```bash
-mkdir -p /etc/NetworkManager/conf.d/
-nano /etc/NetworkManager/iwd.conf
-```
-Contents of `/etc/NetworkManager/conf.d/iwd.conf`
-```bash
-[device]
-wifi.backend=iwd
-```
-3. Configure iwd. Enable the built-in networking + disable IPv6 (optional)
-```bash
-# Contents of /etc/iwd/main.conf
-
-[General]
-EnableNetworkConfiguration=true
-UseDefaultInterface=true
-
-[Network]
-EnableIPv6=false
-```
-5. Enable the services
-```bash
-ln -s /etc/sv/iwd /etc/runit/runsvdir/default
-ln -s /etc/sv/NetworkManager /etc/runit/runsvdir/default
-```
-6. Connect to wifi...
-```bash
-nmcli device wifi connect <SSID> password <password>
-```
-7. Install avahi for ZeroConfig
-```bash
-xbps-install avahi
-ln -s /etc/sv/avahi-daemon /etc/runit/runsvdir/default/
-```
-8. 
 
 # Firmware updates
 1. Install firmware update
@@ -373,12 +436,6 @@ showtools <...>, fwupdate
 
 
 
-# Backup & Recovery
-## Ensure we have cron working
-```bash
-xbps-install cronie
-ln -s /etc/sv/crond /etc/runit/runsvdir/default
-```
 ## Snapper & Schedule
 ```bash
 xbps-install snapper grub-btrfs grub-btrfs-runit
@@ -404,18 +461,6 @@ sed -i 's/^TIMELINE_LIMIT_MONTHLY.*/TIMELINE_LIMIT_MONTHLY="0"/' /etc/snapper/co
 sed -i 's/^TIMELINE_LIMIT_YEARLY.*/TIMELINE_LIMIT_YEARLY="0"/' /etc/snapper/configs/root
 sed -i 's/^ALLOW_GROUPS.*/ALLOW_GROUPS="wheel"/' /etc/snapper/configs/root
 ```
-## Grub & Grub-btrfs
-```bash
-# Enable the snapshot watch
-ln -s /etc/sv/grub-btrfs /etc/runit/runsvdir/default/
-```
-# Graphics
-## Drivers
-```bash
-xbps-install xorg-server-xwayland xf86-video-amdgpu mesa-dri mesa-vaapi mesa-vdpau vulkan-loader mesa-vulkan-radeon
-```
-
-
 
 # Quality of Life
 ## Power Management
