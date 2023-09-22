@@ -127,7 +127,7 @@ cp /var/db/xbps/keys/* /mnt/var/db/xbps/keys/
 ```
 3. Install the base system meant for my specifics (adjust for your needs) 
 ```bash
-XBPS_ARCH=$ARCH xbps-install -S -r /mnt -R "$REPO" base-system base-devel linux-firmware linux-firmware-amd linux-firmware-network linux-firmware-qualcomm cryptsetup lvm2 btrfs-progs grub grub-x86_64-efi grub-terminus grub-btrfs grub-btrfs-runit terminus-font wpa_supplicant NetworkManager avahi nss-mdns elogind polkit-elogind dbus-elogind sbctl sbsigntool gummiboot-efistub efibootmgr efitools efivar lz4 lzop lzip lrzip acpid cronie chrony socklog-void sudo zsh zsh-autosuggestions zsh-completions nnn htop restic snapper btrbk rclone rsync nano curl wget git ldns void-repo-nonfree fwupd fwupd-efi apparmor docker docker-compose containerd xdg-user-dirs xdg-user-dirs-gtk xdg-utils
+XBPS_ARCH=$ARCH xbps-install -S -r /mnt -R "$REPO" base-system base-devel linux-firmware linux-firmware-amd linux-firmware-network linux-firmware-qualcomm cryptsetup lvm2 btrfs-progs grub grub-x86_64-efi grub-terminus grub-btrfs grub-btrfs-runit terminus-font wpa_supplicant NetworkManager avahi nss-mdns elogind polkit-elogind dbus-elogind sbctl sbsigntool gummiboot-efistub efibootmgr efitools efivar lz4 lzop lzip lrzip acpid cronie chrony socklog-void sudo zsh zsh-autosuggestions zsh-completions nnn htop restic snapper btrbk rclone rsync nano curl wget git ldns void-repo-nonfree fwupd fwupd-efi apparmor docker docker-compose containerd xdg-user-dirs xdg-user-dirs-gtk xdg-utils xtools
 
 # GRAPHICS
 mesa-dri vulkan-loader mesa-vulkan-radeon mesa-vaapi mesa-vdpau xf86-video-amdgpu
