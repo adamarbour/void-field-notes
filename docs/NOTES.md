@@ -127,7 +127,7 @@ cp /var/db/xbps/keys/* /mnt/var/db/xbps/keys/
 ```
 3. Install the base system meant for my specifics (adjust for your needs) 
 ```bash
-XBPS_ARCH=$ARCH xbps-install -S -r /mnt -R "$REPO" base-system base-devel linux-firmware linux-firmware-amd linux-firmware-network linux-firmware-qualcomm cryptsetup lvm2 btrfs-progs grub grub-x86_64-efi grub-terminus grub-btrfs grub-btrfs-runit terminus-font iwd NetworkManager avahi nss-mdns elogind polkit-elogind dbus-elogind sbctl sbsigntool gummiboot-efistub efibootmgr efitools efivar lz4 lzop lzip lrzip acpid cronie chrony socklog-void sudo zsh zsh-autosuggestions zsh-completions nnn htop restic snapper btrbk rclone rsync nano curl wget git ldns void-repo-nonfree fwupd fwupd-efi apparmor docker docker-compose containerd xdg-user-dirs xdg-user-dirs-gtk xdg-utils
+XBPS_ARCH=$ARCH xbps-install -S -r /mnt -R "$REPO" base-system base-devel linux-firmware linux-firmware-amd linux-firmware-network linux-firmware-qualcomm cryptsetup lvm2 btrfs-progs grub grub-x86_64-efi grub-terminus grub-btrfs grub-btrfs-runit terminus-font wpa_supplicant NetworkManager avahi nss-mdns elogind polkit-elogind dbus-elogind sbctl sbsigntool gummiboot-efistub efibootmgr efitools efivar lz4 lzop lzip lrzip acpid cronie chrony socklog-void sudo zsh zsh-autosuggestions zsh-completions nnn htop restic snapper btrbk rclone rsync nano curl wget git ldns void-repo-nonfree fwupd fwupd-efi apparmor docker docker-compose containerd xdg-user-dirs xdg-user-dirs-gtk xdg-utils
 
 # GRAPHICS
 mesa-dri vulkan-loader mesa-vulkan-radeon mesa-vaapi mesa-vdpau xf86-video-amdgpu
@@ -169,6 +169,12 @@ sed -i 's/#KEYMAP="es"/KEYMAP="us"/' /etc/rc.conf
 sed -i 's/#FONT="lat9w-16"/FONT="ter-132n"/' /etc/rc.conf
 sed -i 's/#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/default/libc-locales
 xbps-reconfigure -f glibc-locales
+
+# Change the swappiness to swap less
+echo vm.swappiness=10 > /usr/lib/sysctl.d/99-swappiness.conf
+
+useradd -m -g users -G wheel,docker,storage,power,lp -s /bin/bash <USER>
+echo "aarbour ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/sudoers
 ```
 7. Create an additional key for Luks
 ```bash
@@ -256,6 +262,26 @@ ln -s /etc/sv/nanoklogd /etc/runit/runsvdir/default
 ln -s /etc/sv/bluetoothd /etc/runit/runsvdir/default
 ```
 ## Networking
+1. Modify the Network Manager configuration
+```bash
+nano /etc/NetworkManager/conf.d/20-connectivity.conf
+---
+[connectivity]
+uri=http://nmcheck.gnome.org/check_network_status.txt
+```
+2. Set DHCP
+```bash
+nano /etc/NetworkManager/conf.d/dhcp-client.conf
+---
+[main]
+dhcp=dhcpcd
+```
+3. Enable DHCPCD & Network Manager
+```bash
+ln -s /etc/sv/dhcpcd /etc/runit/runsvdir/default
+ln -s /etc/sv/NetworkManager /etc/runit/runsvdir/default
+```
+4. 
 
 ## Snapper Backup
 
