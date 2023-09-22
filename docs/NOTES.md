@@ -252,6 +252,9 @@ reboot now
 ## Minimum services
 We need to enable some basic services now that we have rebooted into our working environment.
 ```bash
+nano /etc/elogind/logind.conf
+# Modify all rows that begin with Handle to = ignore
+
 ln -s /etc/sv/acpid /etc/runit/runsvdir/default
 ln -s /etc/sv/dbus /etc/runit/runsvdir/default
 ln -s /etc/sv/elogind /etc/runit/runsvdir/default
